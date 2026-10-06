@@ -6,14 +6,12 @@ It simulates a cluster of distributed server nodes that elect a leader and achie
 
 ## 🚀 Key Architecture
 
-### 1. Data Structures & Algorithms (DSA)
-* **Concurrent Networking:** We simulate the network in-memory using a custom `ThreadSafeQueue` built with `std::queue`, `std::mutex`, and `std::condition_variable` to safely prevent race conditions.
-* **Randomized Timers:** Implements Raft's randomized election timeout algorithm to naturally resolve split votes.
-
-### 2. Object-Oriented Programming (OOP)
-* **Polymorphism & Inheritance:** Network communication utilizes an Abstract Base Class (`Message`). Remote procedure calls like `RequestVoteArgs` inherit from this, allowing nodes to process incoming data polymorphically.
-* **Encapsulation:** The internal state machine of a server (Follower/Candidate/Leader) and voting logic are strictly encapsulated within the `RaftNode` class.
-* **Singleton Pattern:** Used in `NetworkSimulator` to represent the global network fabric routing messages between isolated node queues.
+* **In-Memory Networking:** The network is simulated using custom thread-safe queues (`ThreadSafeQueue`), allowing nodes to pass messages safely without complex socket programming.
+* **Randomized Timers:** Uses randomized election timeouts to automatically prevent split votes during leader election.
+* **Object-Oriented Design:** 
+  * Strict encapsulation hides the internal state of each server (`RaftNode`).
+  * Network messages use polymorphism (an abstract `Message` base class) for clean and scalable communication.
+  * A Singleton `NetworkSimulator` routes messages globally.
 
 ---
 
