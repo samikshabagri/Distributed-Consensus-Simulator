@@ -28,7 +28,7 @@ void RaftNode::stop() {
 int RaftNode::getRandomTimeout() {
     // Generate a random timeout between 150ms and 300ms
     static std::random_device rd;
-    static std::mt19random_engine gen(rd());
+    static std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(150, 300);
     return dis(gen);
 }
