@@ -64,7 +64,7 @@ void RaftNode::becomeCandidate() {
 void RaftNode::becomeLeader() {
     state = NodeState::Leader;
     std::cout << "\n======================================================\n";
-    std::cout << "👑 [Node " << id << "] became LEADER for term " << currentTerm << " 👑\n";
+    std::cout << ">>> [Node " << id << "] became LEADER for term " << currentTerm << " <<<\n";
     std::cout << "======================================================\n\n";
     sendHeartbeats();
 }
