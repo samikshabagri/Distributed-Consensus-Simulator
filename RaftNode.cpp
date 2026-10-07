@@ -26,10 +26,10 @@ void RaftNode::stop() {
 }
 
 int RaftNode::getRandomTimeout() {
-    // Generate a random timeout between 150ms and 300ms
+    // Generate a random timeout between 1500ms and 3000ms for human readability
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(150, 300);
+    std::uniform_int_distribution<> dis(1500, 3000);
     return dis(gen);
 }
 
@@ -63,12 +63,15 @@ void RaftNode::becomeCandidate() {
 
 void RaftNode::becomeLeader() {
     state = NodeState::Leader;
-    std::cout << ">>> [Node " << id << "] became LEADER for term " << currentTerm << " <<<\n";
+    std::cout << "\n======================================================\n";
+    std::cout << "👑 [Node " << id << "] became LEADER for term " << currentTerm << " 👑\n";
+    std::cout << "======================================================\n\n";
     sendHeartbeats();
 }
 
 void RaftNode::sendHeartbeats() {
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
+    std::cout << "[Node " << id << "] sending Heartbeats/Logs to all followers...\n";
     for (int peerId : nodes) {
         if (peerId != id) {
             auto msg = std::make_shared<AppendEntriesArgs>();
@@ -76,6 +79,10 @@ void RaftNode::sendHeartbeats() {
             msg->receiverId = peerId;
             msg->term = currentTerm;
             msg->leaderId = id;
+            
+            // Add a simulated log entry payload
+            msg->entries.push_back({currentTerm, "NO_OP_HEARTBEAT"});
+            
             NetworkSimulator::getInstance().sendMessage(msg);
         }
     }
@@ -87,7 +94,8 @@ void RaftNode::run() {
         
         int timeoutMillis = 0;
         if (state == NodeState::Leader) {
-            timeoutMillis = 50; // Fast heartbeats
+            timeoutMillis = 500; // Fast heartbeats
+
         } else {
             timeoutMillis = getRandomTimeout(); // Randomized election timeout
         }
@@ -164,7 +172,8 @@ void RaftNode::handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args) 
         if (state != NodeState::Follower) {
             becomeFollower(args->term);
         }
-        // Valid heartbeat from leader, receiving this message automatically 
-        // resets the election timeout in the main run() loop.
+        // Valid heartbeat from leader
+        std::cout << "  -> [Node " << id << "] processed Heartbeat from Leader " << args->leaderId 
+                  << " containing " << args->entries.size() << " log entries.\n";
     }
 }
