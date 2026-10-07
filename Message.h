@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 enum class MessageType {
     RequestVoteArgs,
@@ -32,6 +33,11 @@ public:
     bool voteGranted;
 };
 
+struct LogEntry {
+    int term;
+    std::string command;
+};
+
 class AppendEntriesArgs : public Message {
 public:
     MessageType getType() const override { return MessageType::AppendEntriesArgs; }
@@ -39,7 +45,7 @@ public:
     int prevLogIndex;
     int prevLogTerm;
     int leaderCommit;
-    // Note: Log entries vector will be added in the replication phase
+    std::vector<LogEntry> entries; // Added for log replication phase
 };
 
 class AppendEntriesReply : public Message {
