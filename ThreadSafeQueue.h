@@ -34,10 +34,9 @@ public:
     }
 
     // Waits until an item is available or the timeout occurs
-    template<typename Rep, typename Period>
-    bool wait_and_pop(T& popped_value, const std::chrono::duration<Rep, Period>& timeout) {
+    bool wait_and_pop(T& popped_value, int timeoutMillis) {
         std::unique_lock<std::mutex> lock(mtx);
-        if (!cv.wait_for(lock, timeout, [this] { return !queue.empty(); })) {
+        if (!cv.wait_for(lock, std::chrono::milliseconds(timeoutMillis), [this] { return !queue.empty(); })) {
             return false; // Timeout occurred
         }
         popped_value = std::move(queue.front());

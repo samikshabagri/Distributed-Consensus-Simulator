@@ -1,6 +1,7 @@
 #include "RaftNode.h"
 #include <iostream>
 #include <chrono>
+#include <cstdlib>
 
 using namespace std::chrono_literals;
 
@@ -26,11 +27,9 @@ void RaftNode::stop() {
 }
 
 int RaftNode::getRandomTimeout() {
-    // Generate a random timeout between 1500ms and 3000ms for human readability
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(1500, 3000);
-    return dis(gen);
+    // Generate a random timeout between 1500ms and 3000ms
+    // Using simple rand() to keep the code basic and easy to explain
+    return (rand() % 1501) + 1500;
 }
 
 void RaftNode::becomeFollower(int term) {
@@ -101,7 +100,7 @@ void RaftNode::run() {
         }
 
         // Wait for a message or timeout
-        bool received = messageQueue->wait_and_pop(msg, std::chrono::milliseconds(timeoutMillis));
+        bool received = messageQueue->wait_and_pop(msg, timeoutMillis);
 
         if (received && msg) {
             processMessage(msg);
