@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MESSAGE_H
+#define MESSAGE_H
 #include <string>
 #include <vector>
 
@@ -53,3 +54,5 @@ public:
     MessageType getType() const override { return MessageType::AppendEntriesReply; }
     bool success;
 };
+
+#endif // MESSAGE_H

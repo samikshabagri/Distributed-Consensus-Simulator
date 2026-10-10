@@ -1,4 +1,5 @@
-#pragma once
+#ifndef THREADSAFEQUEUE_H
+#define THREADSAFEQUEUE_H
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -49,3 +50,5 @@ public:
         return queue.empty();
     }
 };
+
+#endif // THREADSAFEQUEUE_H

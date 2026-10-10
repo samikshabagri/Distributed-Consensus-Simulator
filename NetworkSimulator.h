@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NETWORKSIMULATOR_H
+#define NETWORKSIMULATOR_H
 #include "ThreadSafeQueue.h"
 #include "Message.h"
 #include <unordered_map>
@@ -44,3 +45,5 @@ public:
         return nodeIds;
     }
 };
+
+#endif // NETWORKSIMULATOR_H

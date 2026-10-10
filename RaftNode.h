@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RAFTNODE_H
+#define RAFTNODE_H
 #include <thread>
 #include <atomic>
 #include <random>
@@ -49,3 +50,5 @@ public:
     void start();
     void stop();
 };
+
+#endif // RAFTNODE_H
