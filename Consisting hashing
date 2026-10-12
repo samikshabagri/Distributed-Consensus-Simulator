@@ -1,0 +1,63 @@
+#ifndef CONSISTENT_HASH_H
+#define CONSISTENT_HASH_H
+
+#include <cstdint>
+#include <map>
+#include <set>
+#include <string>
+
+// Consistent hashing with virtual nodes.
+// Each physical node owns `vnodes` points on the ring, which evens out the load.
+// Routing can skip excluded nodes (the leader, crashed nodes) by walking clockwise.
+class ConsistentHash {
+private:
+    std::map<uint64_t, int> ring;   // sorted by hash => a "ring"
+    int vnodes;
+
+    // FNV-1a followed by an avalanche step so similar strings spread well.
+    static uint64_t hashKey(const std::string& s) {
+        uint64_t h = 1469598103934665603ULL;
+        for (unsigned char c : s) {
+            h ^= c;
+            h *= 1099511628211ULL;
+        }
+        h ^= h >> 33; h *= 0xff51afd7ed558ccdULL;
+        h ^= h >> 33; h *= 0xc4ceb9fe1a85ec53ULL;
+        h ^= h >> 33;
+        return h;
+    }
+
+    static std::string vnodeName(int nodeId, int v) {
+        return "Node_" + std::to_string(nodeId) + "#" + std::to_string(v);
+    }
+
+public:
+    explicit ConsistentHash(int virtualNodes = 100) : vnodes(virtualNodes) {}
+
+    void addNode(int nodeId) {
+        for (int v = 0; v < vnodes; ++v) ring[hashKey(vnodeName(nodeId, v))] = nodeId;
+    }
+
+    void removeNode(int nodeId) {
+        for (int v = 0; v < vnodes; ++v) ring.erase(hashKey(vnodeName(nodeId, v)));
+    }
+
+    // Route a key to a node, skipping every node in `excluded`.
+    // Returns -1 if the ring is empty or all nodes are excluded.
+    int getClientRoute(const std::string& clientKey, const std::set<int>& excluded) const {
+        if (ring.empty()) return -1;
+        auto it = ring.lower_bound(hashKey(clientKey));
+        for (size_t steps = 0; steps < ring.size(); ++steps) {
+            if (it == ring.end()) it = ring.begin();   // wrap around
+            if (!excluded.count(it->second)) return it->second;
+            ++it;
+        }
+        return -1;
+    }
+
+    int getClientRoute(const std::string& clientKey) const {
+        return getClientRoute(clientKey, std::set<int>{});
+    }
+};
+
+#endif // CONSISTENT_HASH_H
