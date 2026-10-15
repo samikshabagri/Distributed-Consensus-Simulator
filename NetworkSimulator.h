@@ -2,6 +2,7 @@
 #define NETWORKSIMULATOR_H
 #include "ThreadSafeQueue.h"
 #include "Message.h"
+#include "ConsistentHash.h"
 #include <unordered_map>
 #include <memory>
 #include <vector>
@@ -10,6 +11,7 @@ class NetworkSimulator {
 private:
     std::unordered_map<int, std::shared_ptr<ThreadSafeQueue<std::shared_ptr<Message>>>> nodeQueues;
     std::vector<int> nodeIds;
+    ConsistentHash consistentHasher;
 
     // Private constructor for Singleton
     NetworkSimulator() = default;
@@ -25,6 +27,7 @@ public:
     void registerNode(int nodeId) {
         nodeQueues[nodeId] = std::make_shared<ThreadSafeQueue<std::shared_ptr<Message>>>();
         nodeIds.push_back(nodeId);
+        consistentHasher.addNode(nodeId);
     }
 
     // Route a message to the correct node's queue
@@ -43,6 +46,11 @@ public:
     // Get list of all registered nodes
     const std::vector<int>& getAllNodeIds() const {
         return nodeIds;
+    }
+
+    // Route an incoming client request to the correct node using Consistent Hashing
+    int getRouteForClient(const std::string& clientKey) {
+        return consistentHasher.getClientRoute(clientKey);
     }
 };
 
