@@ -32,7 +32,6 @@ public:
         queue.pop();
         return true;
     }
-
     // Waits until an item is available or the timeout occurs
     bool wait_and_pop(T& popped_value, int timeoutMillis) {
         std::unique_lock<std::mutex> lock(mtx);
