@@ -1,10 +1,10 @@
-# Distributed Consensus Simulator (Raft Protocol)
+# Distributed Consensus Simulator (Raft Protocol):
 
 This is a C++ simulation of the **Raft Distributed Consensus Algorithm**, showcasing core **Data Structures & Algorithms (DSA)** and **Object-Oriented Programming (OOP)**.
 
 It simulates a cluster of distributed server nodes that elect a leader and achieve consensus, handling randomized timeouts and message passing natively in-memory.
 
-## Key Architecture
+## Key Architecture:
 
 * **In-Memory Networking:** The network is simulated using custom thread-safe queues (`ThreadSafeQueue`), allowing nodes to pass messages safely without complex socket programming.
 * **Randomized Timers:** Uses randomized election timeouts to automatically prevent split votes during leader election.
@@ -15,7 +15,7 @@ It simulates a cluster of distributed server nodes that elect a leader and achie
 
 ---
 
-## Expected Output
+## Expected Output:
 
 When running the simulation, you will observe:
 1. **5 Nodes** booting up in the `Follower` state.
