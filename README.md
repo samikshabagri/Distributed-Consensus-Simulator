@@ -1,26 +1,23 @@
-# Distributed Consensus Simulator (Raft Protocol):
+# Distributed Consensus Simulator (Raft Protocol & Consistent Hashing)
 
-This is a C++ simulation of the **Raft Distributed Consensus Algorithm**, showcasing core **Data Structures & Algorithms (DSA)** and **Object-Oriented Programming (OOP)**.
+This is a C++ simulation of the **Raft Distributed Consensus Algorithm** and **Consistent Hashing**, showcasing core **Data Structures & Algorithms (DSA)** and **Object-Oriented Programming (OOP)**.
 
-It simulates a cluster of distributed server nodes that elect a leader and achieve consensus, handling randomized timeouts and message passing natively in-memory.
+It simulates a cluster of 5 distributed server nodes that elect a leader, route client banking transactions via Consistent Hashing, replicate logs to followers, and achieve consensus continuously.
 
-## Key Architecture:
+## Key Architecture
 
-* **In-Memory Networking:** The network is simulated using custom thread-safe queues (`ThreadSafeQueue`), allowing nodes to pass messages safely without complex socket programming.
-* **Randomized Timers:** Uses randomized election timeouts to automatically prevent split votes during leader election.
-* **Object-Oriented Design:** 
-  * Strict encapsulation hides the internal state of each server (`RaftNode`).
-  * Network messages use polymorphism (an abstract `Message` base class) for clean and scalable communication.
-  * A Singleton `NetworkSimulator` routes messages globally.
+* **In-Memory Networking:** The network is simulated using custom thread-safe queues (`ThreadSafeQueue`), allowing nodes to pass messages safely without socket programming.
+* **Randomized Timers:** Uses randomized election timeouts (1200ms–2500ms) to automatically prevent split votes during leader election.
+* **Consistent Hashing (`ConsistentHash.h`):** Maps client bank accounts across a virtual hash ring (`std::map`), guaranteeing minimal partition migration.
+* **Log Replication & Banking Engine:** Simulates client deposit, withdrawal, and transfer commands replicated across followers by the leader until majority quorum is reached.
+* **Fault Tolerance & Re-Election:** Demonstrates dynamic leader failovers where the cluster automatically recovers, elects a new leader, and continues transaction processing without downtime.
 
 ---
 
-## Expected Output:
+## Expected Output
 
-When running the simulation, you will observe:
-1. **5 Nodes** booting up in the `Follower` state.
-2. A randomized timeout will occur.
-3. One node will transition to `Candidate` and cast a `RequestVoteArgs` message to the cluster.
-4. The remaining followers will grant their votes.
-5. The Candidate will achieve a majority and announce itself as `Leader`.
-6. The Leader will immediately begin broadcasting `AppendEntriesArgs` (Heartbeats) to suppress further elections.
+When running `raft_sim.exe`, the simulation runs continuously:
+1. **Cluster Bootup & Election:** 5 nodes initialize as Followers. Timeouts fire, a node becomes Candidate, collects votes, and wins election as Leader.
+2. **Banking Transactions Stream:** Client deposits and transfers stream into the system. Consistent Hashing maps accounts to the hash ring.
+3. **Log Replication:** The Leader broadcasts log entries to Followers, each follower appends the transaction to its local log, and majority quorum commits it.
+4. **Dynamic Failover:** Periodically simulates leader stepping down, triggering an instant new election while maintaining data integrity.

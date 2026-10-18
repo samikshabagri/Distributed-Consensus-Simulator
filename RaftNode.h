@@ -1,9 +1,11 @@
 #ifndef RAFTNODE_H
 #define RAFTNODE_H
+
 #include <thread>
 #include <atomic>
-#include <random>
 #include <memory>
+#include <vector>
+#include <string>
 #include "NetworkSimulator.h"
 
 enum class NodeState {
@@ -19,13 +21,14 @@ private:
     std::atomic<int> currentTerm;
     int votedFor;
     int votesReceived;
+    std::vector<LogEntry> log;
 
     std::thread nodeThread;
     std::atomic<bool> running;
 
     std::shared_ptr<ThreadSafeQueue<std::shared_ptr<Message>>> messageQueue;
 
-    // Main loop
+    // Main event loop
     void run();
     
     // State transitions
@@ -39,7 +42,7 @@ private:
     void handleRequestVoteReply(std::shared_ptr<RequestVoteReply> reply);
     void handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args);
     
-    // Utility
+    // Utilities
     void sendHeartbeats();
     int getRandomTimeout();
 
@@ -49,6 +52,14 @@ public:
     
     void start();
     void stop();
+
+    bool isLeader() const { return state == NodeState::Leader; }
+    int getId() const { return id; }
+    int getTerm() const { return currentTerm; }
+    
+    // Propose transaction to cluster
+    bool proposeTransaction(const std::string& command);
+    void simulateStepDown();
 };
 
 #endif // RAFTNODE_H

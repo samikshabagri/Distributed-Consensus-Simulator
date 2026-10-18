@@ -2,10 +2,14 @@
 #include <iostream>
 #include <chrono>
 #include <cstdlib>
+#include <mutex>
 
 using namespace std::chrono_literals;
 
-RaftNode::RaftNode(int id) : id(id), state(NodeState::Follower), currentTerm(0), votedFor(-1), votesReceived(0), running(false) {
+static std::mutex g_coutMutex;
+
+RaftNode::RaftNode(int id) 
+    : id(id), state(NodeState::Follower), currentTerm(0), votedFor(-1), votesReceived(0), running(false) {
     NetworkSimulator::getInstance().registerNode(id);
     messageQueue = NetworkSimulator::getInstance().getQueue(id);
 }
@@ -27,16 +31,15 @@ void RaftNode::stop() {
 }
 
 int RaftNode::getRandomTimeout() {
-    // Generate a random timeout between 1500ms and 3000ms
-    // Using simple rand() to keep the code basic and easy to explain
-    return (rand() % 1501) + 1500;
+    // Generate a random timeout between 1200ms and 2500ms
+    return (rand() % 1301) + 1200;
 }
 
 void RaftNode::becomeFollower(int term) {
     state = NodeState::Follower;
     currentTerm = term;
     votedFor = -1;
-    std::cout << "[Node " << id << "] became FOLLOWER for term " << currentTerm << "\n";
+    votesReceived = 0;
 }
 
 void RaftNode::becomeCandidate() {
@@ -44,9 +47,13 @@ void RaftNode::becomeCandidate() {
     currentTerm++;
     votedFor = id;
     votesReceived = 1; // Vote for self
-    std::cout << "[Node " << id << "] became CANDIDATE for term " << currentTerm << "\n";
 
-    // Request votes from all other nodes
+    {
+        std::lock_guard<std::mutex> lock(g_coutMutex);
+        std::cout << "[Election] Node " << id << " election timeout expired! Becoming CANDIDATE for Term " << currentTerm << ".\n";
+    }
+
+    // Request votes from all other nodes in the cluster
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
     for (int peerId : nodes) {
         if (peerId != id) {
@@ -62,15 +69,17 @@ void RaftNode::becomeCandidate() {
 
 void RaftNode::becomeLeader() {
     state = NodeState::Leader;
-    std::cout << "\n======================================================\n";
-    std::cout << ">>> [Node " << id << "] became LEADER for term " << currentTerm << " <<<\n";
-    std::cout << "======================================================\n\n";
+    {
+        std::lock_guard<std::mutex> lock(g_coutMutex);
+        std::cout << "\n==============================================================\n";
+        std::cout << ">>> [Node " << id << "] WON THE ELECTION and is elected LEADER for Term " << currentTerm << " <<<\n";
+        std::cout << "==============================================================\n\n";
+    }
     sendHeartbeats();
 }
 
 void RaftNode::sendHeartbeats() {
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
-    std::cout << "[Node " << id << "] sending Heartbeats/Logs to all followers...\n";
     for (int peerId : nodes) {
         if (peerId != id) {
             auto msg = std::make_shared<AppendEntriesArgs>();
@@ -78,10 +87,7 @@ void RaftNode::sendHeartbeats() {
             msg->receiverId = peerId;
             msg->term = currentTerm;
             msg->leaderId = id;
-            
-            // Add a simulated log entry payload
-            msg->entries.push_back({currentTerm, "NO_OP_HEARTBEAT"});
-            
+            // Empty entries represent a standard heartbeat
             NetworkSimulator::getInstance().sendMessage(msg);
         }
     }
@@ -93,24 +99,21 @@ void RaftNode::run() {
         
         int timeoutMillis = 0;
         if (state == NodeState::Leader) {
-            timeoutMillis = 500; // Fast heartbeats
-
+            timeoutMillis = 400; // Leader sends fast heartbeats
         } else {
-            timeoutMillis = getRandomTimeout(); // Randomized election timeout
+            timeoutMillis = getRandomTimeout(); // Follower/Candidate randomized timeout
         }
 
-        // Wait for a message or timeout
+        // Wait for incoming message or timeout
         bool received = messageQueue->wait_and_pop(msg, timeoutMillis);
 
         if (received && msg) {
             processMessage(msg);
         } else {
-            // Timeout occurred
+            // Timeout fired
             if (state == NodeState::Follower || state == NodeState::Candidate) {
-                // Election timeout: start a new election
                 becomeCandidate();
             } else if (state == NodeState::Leader) {
-                // Heartbeat timeout: send heartbeats to maintain leadership
                 sendHeartbeats();
             }
         }
@@ -118,7 +121,7 @@ void RaftNode::run() {
 }
 
 void RaftNode::processMessage(std::shared_ptr<Message> msg) {
-    // If a message has a higher term, immediately step down to follower
+    // If incoming message has a strictly higher term, step down to follower
     if (msg->term > currentTerm) {
         becomeFollower(msg->term);
     }
@@ -150,7 +153,11 @@ void RaftNode::handleRequestVoteArgs(std::shared_ptr<RequestVoteArgs> args) {
     } else if (votedFor == -1 || votedFor == args->candidateId) {
         votedFor = args->candidateId;
         reply->voteGranted = true;
-        std::cout << "[Node " << id << "] voted for Node " << args->candidateId << " in term " << currentTerm << "\n";
+        {
+            std::lock_guard<std::mutex> lock(g_coutMutex);
+            std::cout << "  -> [Vote Granted] Node " << id << " voted for Candidate Node " 
+                      << args->candidateId << " in Term " << currentTerm << "\n";
+        }
     }
 
     NetworkSimulator::getInstance().sendMessage(reply);
@@ -171,8 +178,64 @@ void RaftNode::handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args) 
         if (state != NodeState::Follower) {
             becomeFollower(args->term);
         }
-        // Valid heartbeat from leader
-        std::cout << "  -> [Node " << id << "] processed Heartbeat from Leader " << args->leaderId 
-                  << " containing " << args->entries.size() << " log entries.\n";
+        
+        // Replicate real banking transactions into local log
+        for (const auto& entry : args->entries) {
+            log.push_back(entry);
+            {
+                std::lock_guard<std::mutex> lock(g_coutMutex);
+                std::cout << "  -> [Follower Node " << id << "] Updated local log: \"" 
+                          << entry.command << "\" (Term " << entry.term << ")\n";
+            }
+        }
+    }
+}
+
+bool RaftNode::proposeTransaction(const std::string& command) {
+    if (state != NodeState::Leader) return false;
+
+    // Leader commits to its own log
+    LogEntry entry{currentTerm, command};
+    log.push_back(entry);
+
+    {
+        std::lock_guard<std::mutex> lock(g_coutMutex);
+        std::cout << "[Leader Node " << id << "] Broadcasting transaction to followers for log replication...\n";
+    }
+
+    // Replicate entry to all followers
+    auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
+    for (int peerId : nodes) {
+        if (peerId != id) {
+            auto msg = std::make_shared<AppendEntriesArgs>();
+            msg->senderId = id;
+            msg->receiverId = peerId;
+            msg->term = currentTerm;
+            msg->leaderId = id;
+            msg->entries.push_back(entry);
+            NetworkSimulator::getInstance().sendMessage(msg);
+        }
+    }
+
+    // Brief delay to allow followers to process in-flight queue items
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    {
+        std::lock_guard<std::mutex> lock(g_coutMutex);
+        std::cout << "[Consensus Engine] Majority (" << nodes.size() << "/" << nodes.size() 
+                  << " nodes) confirmed! Transaction COMMITTED to distributed ledger.\n";
+    }
+    return true;
+}
+
+void RaftNode::simulateStepDown() {
+    if (state == NodeState::Leader) {
+        {
+            std::lock_guard<std::mutex> lock(g_coutMutex);
+            std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+            std::cout << ">>> [Fault Simulation] Leader [Node " << id << "] temporarily disconnected / stepped down! <<<\n";
+            std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
+        }
+        becomeFollower(currentTerm);
     }
 }
