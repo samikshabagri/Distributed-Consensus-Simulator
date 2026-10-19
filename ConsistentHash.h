@@ -5,26 +5,28 @@
 #include <string>
 #include <functional>
 
+using namespace std;
+
 // A simple implementation of Consistent Hashing
 class ConsistentHash {
 private:
-    // std::map automatically sorts by the hash, naturally creating a "ring"
-    std::map<size_t, int> ring;
-    std::hash<std::string> hasher;
+    // map automatically sorts by the hash, naturally creating a "ring"
+    map<size_t, int> ring;
+    hash<string> hasher;
 
 public:
     void addNode(int nodeId) {
-        size_t h = hasher("Node_" + std::to_string(nodeId));
+        size_t h = hasher("Node_" + to_string(nodeId));
         ring[h] = nodeId;
     }
 
     void removeNode(int nodeId) {
-        size_t h = hasher("Node_" + std::to_string(nodeId));
+        size_t h = hasher("Node_" + to_string(nodeId));
         ring.erase(h);
     }
 
     // Finds the next available node for a given client or data key
-    int getClientRoute(const std::string& clientKey) {
+    int getClientRoute(const string& clientKey) {
         if (ring.empty()) return -1;
         
         size_t h = hasher(clientKey);
@@ -41,4 +43,3 @@ public:
 };
 
 #endif // CONSISTENT_HASH_H
-

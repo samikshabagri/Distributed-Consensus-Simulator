@@ -4,9 +4,10 @@
 #include <random>
 #include <mutex>
 
+using namespace std;
 using namespace std::chrono_literals;
 
-static std::mutex g_coutMutex;
+static mutex g_coutMutex;
 
 RaftNode::RaftNode(int id) 
     : id(id), state(NodeState::Follower), currentTerm(0), votedFor(-1), votesReceived(0), running(false) {
@@ -20,7 +21,7 @@ RaftNode::~RaftNode() {
 
 void RaftNode::start() {
     running = true;
-    nodeThread = std::thread(&RaftNode::run, this);
+    nodeThread = thread(&RaftNode::run, this);
 }
 
 void RaftNode::stop() {
@@ -32,11 +33,11 @@ void RaftNode::stop() {
 
 int RaftNode::getRandomTimeout() {
     // Unique pseudorandom generator per thread seeded with high-res clock and node ID
-    static thread_local std::mt19937 rng(
-        (unsigned int)std::chrono::high_resolution_clock::now().time_since_epoch().count() + (id * 7919)
+    static thread_local mt19937 rng(
+        (unsigned int)chrono::high_resolution_clock::now().time_since_epoch().count() + (id * 7919)
     );
     // Timeout distributed between 1000ms and 2200ms
-    std::uniform_int_distribution<int> dist(1000, 2200);
+    uniform_int_distribution<int> dist(1000, 2200);
     return dist(rng);
 }
 
@@ -54,15 +55,15 @@ void RaftNode::becomeCandidate() {
     votesReceived = 1; // Vote for self
 
     {
-        std::lock_guard<std::mutex> lock(g_coutMutex);
-        std::cout << "[Election] Node " << id << " election timeout expired! Becoming CANDIDATE for Term " << currentTerm << "." << std::endl;
+        lock_guard<mutex> lock(g_coutMutex);
+        cout << "[Election] Node " << id << " election timeout expired! Becoming CANDIDATE for Term " << currentTerm << "." << endl;
     }
 
     // Request votes from all other nodes in the cluster
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
     for (int peerId : nodes) {
         if (peerId != id) {
-            auto msg = std::make_shared<RequestVoteArgs>();
+            auto msg = make_shared<RequestVoteArgs>();
             msg->senderId = id;
             msg->receiverId = peerId;
             msg->term = currentTerm;
@@ -75,10 +76,10 @@ void RaftNode::becomeCandidate() {
 void RaftNode::becomeLeader() {
     state = NodeState::Leader;
     {
-        std::lock_guard<std::mutex> lock(g_coutMutex);
-        std::cout << "\n==============================================================" << std::endl;
-        std::cout << ">>> [Node " << id << "] WON THE ELECTION and is elected LEADER for Term " << currentTerm << " <<<" << std::endl;
-        std::cout << "==============================================================" << std::endl << std::endl;
+        lock_guard<mutex> lock(g_coutMutex);
+        cout << "\n==============================================================" << endl;
+        cout << ">>> [Node " << id << "] WON THE ELECTION and is elected LEADER for Term " << currentTerm << " <<<" << endl;
+        cout << "==============================================================" << endl << endl;
     }
     sendHeartbeats();
 }
@@ -87,7 +88,7 @@ void RaftNode::sendHeartbeats() {
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
     for (int peerId : nodes) {
         if (peerId != id) {
-            auto msg = std::make_shared<AppendEntriesArgs>();
+            auto msg = make_shared<AppendEntriesArgs>();
             msg->senderId = id;
             msg->receiverId = peerId;
             msg->term = currentTerm;
@@ -100,10 +101,10 @@ void RaftNode::sendHeartbeats() {
 
 void RaftNode::run() {
     // Stagger startup slightly by node ID so all nodes don't expire at the exact same millisecond
-    std::this_thread::sleep_for(std::chrono::milliseconds(id * 150));
+    this_thread::sleep_for(chrono::milliseconds(id * 150));
 
     while (running) {
-        std::shared_ptr<Message> msg;
+        shared_ptr<Message> msg;
         
         int timeoutMillis = 0;
         if (state == NodeState::Leader) {
@@ -128,7 +129,7 @@ void RaftNode::run() {
     }
 }
 
-void RaftNode::processMessage(std::shared_ptr<Message> msg) {
+void RaftNode::processMessage(shared_ptr<Message> msg) {
     // If incoming message has a strictly higher term, step down to follower
     if (msg->term > currentTerm) {
         becomeFollower(msg->term);
@@ -136,21 +137,21 @@ void RaftNode::processMessage(std::shared_ptr<Message> msg) {
 
     switch (msg->getType()) {
         case MessageType::RequestVoteArgs:
-            handleRequestVoteArgs(std::static_pointer_cast<RequestVoteArgs>(msg));
+            handleRequestVoteArgs(static_pointer_cast<RequestVoteArgs>(msg));
             break;
         case MessageType::RequestVoteReply:
-            handleRequestVoteReply(std::static_pointer_cast<RequestVoteReply>(msg));
+            handleRequestVoteReply(static_pointer_cast<RequestVoteReply>(msg));
             break;
         case MessageType::AppendEntriesArgs:
-            handleAppendEntriesArgs(std::static_pointer_cast<AppendEntriesArgs>(msg));
+            handleAppendEntriesArgs(static_pointer_cast<AppendEntriesArgs>(msg));
             break;
         default:
             break;
     }
 }
 
-void RaftNode::handleRequestVoteArgs(std::shared_ptr<RequestVoteArgs> args) {
-    auto reply = std::make_shared<RequestVoteReply>();
+void RaftNode::handleRequestVoteArgs(shared_ptr<RequestVoteArgs> args) {
+    auto reply = make_shared<RequestVoteReply>();
     reply->senderId = id;
     reply->receiverId = args->senderId;
     reply->term = currentTerm;
@@ -167,16 +168,16 @@ void RaftNode::handleRequestVoteArgs(std::shared_ptr<RequestVoteArgs> args) {
         votedFor = args->candidateId;
         reply->voteGranted = true;
         {
-            std::lock_guard<std::mutex> lock(g_coutMutex);
-            std::cout << "  -> [Vote Granted] Node " << id << " voted for Candidate Node " 
-                      << args->candidateId << " in Term " << currentTerm << std::endl;
+            lock_guard<mutex> lock(g_coutMutex);
+            cout << "  -> [Vote Granted] Node " << id << " voted for Candidate Node " 
+                 << args->candidateId << " in Term " << currentTerm << endl;
         }
     }
 
     NetworkSimulator::getInstance().sendMessage(reply);
 }
 
-void RaftNode::handleRequestVoteReply(std::shared_ptr<RequestVoteReply> reply) {
+void RaftNode::handleRequestVoteReply(shared_ptr<RequestVoteReply> reply) {
     if (state == NodeState::Candidate && reply->term == currentTerm && reply->voteGranted) {
         votesReceived++;
         int majority = (NetworkSimulator::getInstance().getAllNodeIds().size() / 2) + 1;
@@ -186,7 +187,7 @@ void RaftNode::handleRequestVoteReply(std::shared_ptr<RequestVoteReply> reply) {
     }
 }
 
-void RaftNode::handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args) {
+void RaftNode::handleAppendEntriesArgs(shared_ptr<AppendEntriesArgs> args) {
     if (args->term >= currentTerm) {
         if (state != NodeState::Follower) {
             becomeFollower(args->term);
@@ -196,15 +197,15 @@ void RaftNode::handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args) 
         for (const auto& entry : args->entries) {
             log.push_back(entry);
             {
-                std::lock_guard<std::mutex> lock(g_coutMutex);
-                std::cout << "  -> [Follower Node " << id << "] Updated local log: \"" 
-                          << entry.command << "\" (Term " << entry.term << ")" << std::endl;
+                lock_guard<mutex> lock(g_coutMutex);
+                cout << "  -> [Follower Node " << id << "] Updated local log: \"" 
+                     << entry.command << "\" (Term " << entry.term << ")" << endl;
             }
         }
     }
 }
 
-bool RaftNode::proposeTransaction(const std::string& command) {
+bool RaftNode::proposeTransaction(const string& command) {
     if (state != NodeState::Leader) return false;
 
     // Leader commits to its own log
@@ -212,15 +213,15 @@ bool RaftNode::proposeTransaction(const std::string& command) {
     log.push_back(entry);
 
     {
-        std::lock_guard<std::mutex> lock(g_coutMutex);
-        std::cout << "[Leader Node " << id << "] Broadcasting transaction to followers for log replication..." << std::endl;
+        lock_guard<mutex> lock(g_coutMutex);
+        cout << "[Leader Node " << id << "] Broadcasting transaction to followers for log replication..." << endl;
     }
 
     // Replicate entry to all followers
     auto nodes = NetworkSimulator::getInstance().getAllNodeIds();
     for (int peerId : nodes) {
         if (peerId != id) {
-            auto msg = std::make_shared<AppendEntriesArgs>();
+            auto msg = make_shared<AppendEntriesArgs>();
             msg->senderId = id;
             msg->receiverId = peerId;
             msg->term = currentTerm;
@@ -231,12 +232,12 @@ bool RaftNode::proposeTransaction(const std::string& command) {
     }
 
     // Brief delay to allow followers to process in-flight queue items
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    this_thread::sleep_for(chrono::milliseconds(300));
 
     {
-        std::lock_guard<std::mutex> lock(g_coutMutex);
-        std::cout << "[Consensus Engine] Majority (" << nodes.size() << "/" << nodes.size() 
-                  << " nodes) confirmed! Transaction COMMITTED to distributed ledger." << std::endl;
+        lock_guard<mutex> lock(g_coutMutex);
+        cout << "[Consensus Engine] Majority (" << nodes.size() << "/" << nodes.size() 
+             << " nodes) confirmed! Transaction COMMITTED to distributed ledger." << endl;
     }
     return true;
 }
@@ -244,13 +245,13 @@ bool RaftNode::proposeTransaction(const std::string& command) {
 void RaftNode::simulateStepDown() {
     if (state == NodeState::Leader) {
         {
-            std::lock_guard<std::mutex> lock(g_coutMutex);
-            std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
-            std::cout << ">>> [Fault Simulation] Leader [Node " << id << "] temporarily disconnected / stepped down! <<<" << std::endl;
-            std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" << std::endl;
+            lock_guard<mutex> lock(g_coutMutex);
+            cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+            cout << ">>> [Fault Simulation] Leader [Node " << id << "] temporarily disconnected / stepped down! <<<" << endl;
+            cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" << endl;
         }
         becomeFollower(currentTerm);
         // Sleep stepped-down leader for 2.5s so other followers can timeout and win election
-        std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+        this_thread::sleep_for(chrono::milliseconds(2500));
     }
 }

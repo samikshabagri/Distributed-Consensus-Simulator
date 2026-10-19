@@ -8,6 +8,8 @@
 #include <string>
 #include "NetworkSimulator.h"
 
+using namespace std;
+
 enum class NodeState {
     Follower,
     Candidate,
@@ -17,16 +19,16 @@ enum class NodeState {
 class RaftNode {
 private:
     int id;
-    std::atomic<NodeState> state;
-    std::atomic<int> currentTerm;
+    atomic<NodeState> state;
+    atomic<int> currentTerm;
     int votedFor;
     int votesReceived;
-    std::vector<LogEntry> log;
+    vector<LogEntry> log;
 
-    std::thread nodeThread;
-    std::atomic<bool> running;
+    thread nodeThread;
+    atomic<bool> running;
 
-    std::shared_ptr<ThreadSafeQueue<std::shared_ptr<Message>>> messageQueue;
+    shared_ptr<ThreadSafeQueue<shared_ptr<Message>>> messageQueue;
 
     // Main event loop
     void run();
@@ -37,10 +39,10 @@ private:
     void becomeLeader();
 
     // Message handlers
-    void processMessage(std::shared_ptr<Message> msg);
-    void handleRequestVoteArgs(std::shared_ptr<RequestVoteArgs> args);
-    void handleRequestVoteReply(std::shared_ptr<RequestVoteReply> reply);
-    void handleAppendEntriesArgs(std::shared_ptr<AppendEntriesArgs> args);
+    void processMessage(shared_ptr<Message> msg);
+    void handleRequestVoteArgs(shared_ptr<RequestVoteArgs> args);
+    void handleRequestVoteReply(shared_ptr<RequestVoteReply> reply);
+    void handleAppendEntriesArgs(shared_ptr<AppendEntriesArgs> args);
     
     // Utilities
     void sendHeartbeats();
@@ -58,7 +60,7 @@ public:
     int getTerm() const { return currentTerm; }
     
     // Propose transaction to cluster
-    bool proposeTransaction(const std::string& command);
+    bool proposeTransaction(const string& command);
     void simulateStepDown();
 };
 

@@ -5,24 +5,26 @@
 #include <thread>
 #include <chrono>
 
+using namespace std;
+
 struct BankingTxn {
-    std::string user;
-    std::string account;
-    std::string operation;
+    string user;
+    string account;
+    string operation;
     double amount;
 };
 
 int main() {
-    std::cout << "===============================================================" << std::endl;
-    std::cout << "       Distributed Consensus Banking Simulator (Raft + Hash)    " << std::endl;
-    std::cout << "===============================================================" << std::endl << std::endl;
+    cout << "===============================================================" << endl;
+    cout << "       Distributed Consensus Banking Simulator (Raft + Hash)    " << endl;
+    cout << "===============================================================" << endl << endl;
 
     int numNodes = 5;
-    std::vector<std::unique_ptr<RaftNode>> nodes;
+    vector<unique_ptr<RaftNode>> nodes;
 
     // Initialize 5-node cluster
     for (int i = 0; i < numNodes; ++i) {
-        nodes.push_back(std::make_unique<RaftNode>(i));
+        nodes.push_back(make_unique<RaftNode>(i));
     }
 
     // Start each node on its own thread
@@ -30,13 +32,13 @@ int main() {
         node->start();
     }
 
-    std::cout << "Starting cluster of 5 nodes. Waiting for initial Leader Election..." << std::endl << std::endl;
+    cout << "Starting cluster of 5 nodes. Waiting for initial Leader Election..." << endl << endl;
 
     // Wait for the first election to complete
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    this_thread::sleep_for(chrono::seconds(3));
 
     // Pre-defined sample banking activities
-    std::vector<BankingTxn> sampleTxns = {
+    vector<BankingTxn> sampleTxns = {
         {"Alice",   "ACC_101", "DEPOSIT",    500.00},
         {"Bob",     "ACC_202", "WITHDRAWAL", 150.00},
         {"Charlie", "ACC_303", "TRANSFER",   300.00},
@@ -62,7 +64,7 @@ int main() {
 
         // If an election is currently underway, wait briefly and retry
         if (!currentLeader) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            this_thread::sleep_for(chrono::milliseconds(500));
             continue;
         }
 
@@ -70,33 +72,33 @@ int main() {
         const auto& txn = sampleTxns[txnCounter % sampleTxns.size()];
         txnCounter++;
 
-        std::cout << "\n----------------------------------------------------------------------" << std::endl;
-        std::cout << "[Banking Client] User " << txn.user << " requested " << txn.operation 
-                  << " of $" << txn.amount << " on Account " << txn.account << std::endl;
+        cout << "\n----------------------------------------------------------------------" << endl;
+        cout << "[Banking Client] User " << txn.user << " requested " << txn.operation 
+             << " of $" << txn.amount << " on Account " << txn.account << endl;
 
         // 1. Consistent Hashing determines partition on the hash ring
         int mappedNode = NetworkSimulator::getInstance().getRouteForClient(txn.account);
-        std::cout << "[Consistent Hash] Account " << txn.account << " mapped to Node " 
-                  << mappedNode << " on Hash Ring." << std::endl;
+        cout << "[Consistent Hash] Account " << txn.account << " mapped to Node " 
+             << mappedNode << " on Hash Ring." << endl;
 
         // 2. Client request routed to current Cluster Leader
-        std::cout << "[Client Router] Routed transaction to Cluster Leader [Node " 
-                  << currentLeader->getId() << "] (Term " << currentLeader->getTerm() << ")." << std::endl;
+        cout << "[Client Router] Routed transaction to Cluster Leader [Node " 
+             << currentLeader->getId() << "] (Term " << currentLeader->getTerm() << ")." << endl;
 
         // 3. Leader commits transaction through Raft Log Replication
-        std::string command = txn.user + " " + txn.operation + " $" + std::to_string((int)txn.amount) + " (" + txn.account + ")";
+        string command = txn.user + " " + txn.operation + " $" + to_string((int)txn.amount) + " (" + txn.account + ")";
         currentLeader->proposeTransaction(command);
 
-        std::cout << "[Bank State] Account " << txn.account << " balance updated. Total Committed Txns: " << txnCounter << std::endl;
-        std::cout << "----------------------------------------------------------------------" << std::endl;
+        cout << "[Bank State] Account " << txn.account << " balance updated. Total Committed Txns: " << txnCounter << endl;
+        cout << "----------------------------------------------------------------------" << endl;
 
         // Every 5 transactions, simulate a leader stepping down to demonstrate dynamic re-election
         if (txnCounter % 5 == 0) {
             currentLeader->simulateStepDown();
-            std::this_thread::sleep_for(std::chrono::seconds(3)); // Allow followers to elect a new leader
+            this_thread::sleep_for(chrono::seconds(3)); // Allow followers to elect a new leader
         } else {
             // Wait 2.5 seconds before submitting the next banking transaction
-            std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+            this_thread::sleep_for(chrono::milliseconds(2500));
         }
     }
 

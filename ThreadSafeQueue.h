@@ -1,51 +1,55 @@
 #ifndef THREADSAFEQUEUE_H
 #define THREADSAFEQUEUE_H
+
 #include <queue>
 #include <mutex>
 #include <condition_variable>
 #include <memory>
 #include <chrono>
 
+using namespace std;
+
 template <typename T>
 class ThreadSafeQueue {
 private:
-    std::queue<T> queue;
-    std::mutex mtx;
-    std::condition_variable cv;
+    queue<T> q;
+    mutex mtx;
+    condition_variable cv;
 
 public:
     // Pushes an item into the queue safely
     void push(T item) {
-        std::unique_lock<std::mutex> lock(mtx);
-        queue.push(std::move(item));
+        unique_lock<mutex> lock(mtx);
+        q.push(move(item));
         lock.unlock();
         cv.notify_one();
     }
 
     // Tries to pop an item, returns false if empty
     bool try_pop(T& popped_value) {
-        std::lock_guard<std::mutex> lock(mtx);
-        if (queue.empty()) {
+        lock_guard<mutex> lock(mtx);
+        if (q.empty()) {
             return false;
         }
-        popped_value = std::move(queue.front());
-        queue.pop();
+        popped_value = move(q.front());
+        q.pop();
         return true;
     }
+
     // Waits until an item is available or the timeout occurs
     bool wait_and_pop(T& popped_value, int timeoutMillis) {
-        std::unique_lock<std::mutex> lock(mtx);
-        if (!cv.wait_for(lock, std::chrono::milliseconds(timeoutMillis), [this] { return !queue.empty(); })) {
+        unique_lock<mutex> lock(mtx);
+        if (!cv.wait_for(lock, chrono::milliseconds(timeoutMillis), [this] { return !q.empty(); })) {
             return false; // Timeout occurred
         }
-        popped_value = std::move(queue.front());
-        queue.pop();
+        popped_value = move(q.front());
+        q.pop();
         return true;
     }
 
     bool empty() {
-        std::lock_guard<std::mutex> lock(mtx);
-        return queue.empty();
+        lock_guard<mutex> lock(mtx);
+        return q.empty();
     }
 };
 

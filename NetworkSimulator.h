@@ -1,5 +1,6 @@
 #ifndef NETWORKSIMULATOR_H
 #define NETWORKSIMULATOR_H
+
 #include "ThreadSafeQueue.h"
 #include "Message.h"
 #include "ConsistentHash.h"
@@ -7,10 +8,12 @@
 #include <memory>
 #include <vector>
 
+using namespace std;
+
 class NetworkSimulator {
 private:
-    std::unordered_map<int, std::shared_ptr<ThreadSafeQueue<std::shared_ptr<Message>>>> nodeQueues;
-    std::vector<int> nodeIds;
+    unordered_map<int, shared_ptr<ThreadSafeQueue<shared_ptr<Message>>>> nodeQueues;
+    vector<int> nodeIds;
     ConsistentHash consistentHasher;
 
     // Private constructor for Singleton
@@ -25,13 +28,13 @@ public:
 
     // Register a node and create its mailbox
     void registerNode(int nodeId) {
-        nodeQueues[nodeId] = std::make_shared<ThreadSafeQueue<std::shared_ptr<Message>>>();
+        nodeQueues[nodeId] = make_shared<ThreadSafeQueue<shared_ptr<Message>>>();
         nodeIds.push_back(nodeId);
         consistentHasher.addNode(nodeId);
     }
 
     // Route a message to the correct node's queue
-    void sendMessage(std::shared_ptr<Message> msg) {
+    void sendMessage(shared_ptr<Message> msg) {
         auto it = nodeQueues.find(msg->receiverId);
         if (it != nodeQueues.end()) {
             it->second->push(msg);
@@ -39,17 +42,17 @@ public:
     }
 
     // Get a specific node's queue (used by the node itself to read messages)
-    std::shared_ptr<ThreadSafeQueue<std::shared_ptr<Message>>> getQueue(int nodeId) {
+    shared_ptr<ThreadSafeQueue<shared_ptr<Message>>> getQueue(int nodeId) {
         return nodeQueues[nodeId];
     }
     
     // Get list of all registered nodes
-    const std::vector<int>& getAllNodeIds() const {
+    const vector<int>& getAllNodeIds() const {
         return nodeIds;
     }
 
     // Route an incoming client request to the correct node using Consistent Hashing
-    int getRouteForClient(const std::string& clientKey) {
+    int getRouteForClient(const string& clientKey) {
         return consistentHasher.getClientRoute(clientKey);
     }
 };

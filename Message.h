@@ -1,7 +1,10 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
+
 #include <string>
 #include <vector>
+
+using namespace std;
 
 enum class MessageType {
     RequestVoteArgs,
@@ -36,7 +39,7 @@ public:
 
 struct LogEntry {
     int term;
-    std::string command;
+    string command;
 };
 
 class AppendEntriesArgs : public Message {
@@ -46,7 +49,7 @@ public:
     int prevLogIndex;
     int prevLogTerm;
     int leaderCommit;
-    std::vector<LogEntry> entries; // Added for log replication phase
+    vector<LogEntry> entries;
 };
 
 class AppendEntriesReply : public Message {
