@@ -13,9 +13,9 @@ struct BankingTxn {
 };
 
 int main() {
-    std::cout << "===============================================================\n";
-    std::cout << "       Distributed Consensus Banking Simulator (Raft + Hash)    \n";
-    std::cout << "===============================================================\n\n";
+    std::cout << "===============================================================" << std::endl;
+    std::cout << "       Distributed Consensus Banking Simulator (Raft + Hash)    " << std::endl;
+    std::cout << "===============================================================" << std::endl << std::endl;
 
     int numNodes = 5;
     std::vector<std::unique_ptr<RaftNode>> nodes;
@@ -30,7 +30,7 @@ int main() {
         node->start();
     }
 
-    std::cout << "Starting cluster of 5 nodes. Waiting for initial Leader Election...\n\n";
+    std::cout << "Starting cluster of 5 nodes. Waiting for initial Leader Election..." << std::endl << std::endl;
 
     // Wait for the first election to complete
     std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -70,25 +70,25 @@ int main() {
         const auto& txn = sampleTxns[txnCounter % sampleTxns.size()];
         txnCounter++;
 
-        std::cout << "\n----------------------------------------------------------------------\n";
+        std::cout << "\n----------------------------------------------------------------------" << std::endl;
         std::cout << "[Banking Client] User " << txn.user << " requested " << txn.operation 
-                  << " of $" << txn.amount << " on Account " << txn.account << "\n";
+                  << " of $" << txn.amount << " on Account " << txn.account << std::endl;
 
         // 1. Consistent Hashing determines partition on the hash ring
         int mappedNode = NetworkSimulator::getInstance().getRouteForClient(txn.account);
         std::cout << "[Consistent Hash] Account " << txn.account << " mapped to Node " 
-                  << mappedNode << " on Hash Ring.\n";
+                  << mappedNode << " on Hash Ring." << std::endl;
 
         // 2. Client request routed to current Cluster Leader
         std::cout << "[Client Router] Routed transaction to Cluster Leader [Node " 
-                  << currentLeader->getId() << "] (Term " << currentLeader->getTerm() << ").\n";
+                  << currentLeader->getId() << "] (Term " << currentLeader->getTerm() << ")." << std::endl;
 
         // 3. Leader commits transaction through Raft Log Replication
         std::string command = txn.user + " " + txn.operation + " $" + std::to_string((int)txn.amount) + " (" + txn.account + ")";
         currentLeader->proposeTransaction(command);
 
-        std::cout << "[Bank State] Account " << txn.account << " balance updated. Total Committed Txns: " << txnCounter << "\n";
-        std::cout << "----------------------------------------------------------------------\n";
+        std::cout << "[Bank State] Account " << txn.account << " balance updated. Total Committed Txns: " << txnCounter << std::endl;
+        std::cout << "----------------------------------------------------------------------" << std::endl;
 
         // Every 5 transactions, simulate a leader stepping down to demonstrate dynamic re-election
         if (txnCounter % 5 == 0) {
