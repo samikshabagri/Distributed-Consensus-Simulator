@@ -1,0 +1,342 @@
+===============================================================
+   Distributed Consensus Banking Simulator - PHASE III         
+   Raft (election + log replication) + Consistent Hashing      
+===============================================================
+Fault-injection seed: 42   (run with --seed N to change)
+[     0 ms] Cluster of 5 nodes started. Waiting for the first leader election...
+
+######################################################################
+#  SCENARIO 1: Normal operation - log replication and majority commit
+######################################################################
+[  1322 ms] [Node 0 | T1] election timeout -> CANDIDATE, requesting votes
+[  1322 ms]   -> [Node 4] votes for Node 0 in Term 1
+[  1322 ms]   -> [Node 3] votes for Node 0 in Term 1
+
+[  1322 ms] >>> [Node 0 | T1] WON THE ELECTION with 3/5 votes -> LEADER <<<
+[  1322 ms]   -> [Node 2] votes for Node 0 in Term 1
+[  1322 ms]   -> [Node 1] votes for Node 0 in Term 1
+----------------------------------------------------------------------
+[  1330 ms] [Client] txn 1: Alice DEPOSIT $500.00 -> ACC_101
+[  1330 ms] [Router] writes always go to the leader -> Node 0  (account ACC_101 is owned by Node 2 on the hash ring, used for reads)
+[  1330 ms] [Node 0 | T1] appended #2 to its log, replicating to followers...
+[  1330 ms]   -> [Node 4] appended #2: Alice DEPOSIT $500.00 -> ACC_101 (term 1)
+[  1330 ms]   -> [Node 2] appended #2: Alice DEPOSIT $500.00 -> ACC_101 (term 1)
+[  1330 ms]   -> [Node 3] appended #2: Alice DEPOSIT $500.00 -> ACC_101 (term 1)
+[  1330 ms]   -> [Node 1] appended #2: Alice DEPOSIT $500.00 -> ACC_101 (term 1)
+[  1330 ms] [Consensus] [Node 0 | T1] entry #2 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1330 ms] [Ledger] [Node 0 | T1] applied #2: ACC_101 balance = $500.00
+[  1332 ms] [Client] txn 1 COMMITTED at log index #2 in 2 ms
+----------------------------------------------------------------------
+[  1332 ms] [Client] txn 2: Bob DEPOSIT $300.00 -> ACC_202
+[  1332 ms] [Router] writes always go to the leader -> Node 0  (account ACC_202 is owned by Node 0 on the hash ring, used for reads)
+[  1332 ms] [Node 0 | T1] appended #3 to its log, replicating to followers...
+[  1332 ms]   -> [Node 4] appended #3: Bob DEPOSIT $300.00 -> ACC_202 (term 1)
+[  1332 ms]   -> [Node 3] appended #3: Bob DEPOSIT $300.00 -> ACC_202 (term 1)
+[  1332 ms]   -> [Node 1] appended #3: Bob DEPOSIT $300.00 -> ACC_202 (term 1)
+[  1332 ms]   -> [Node 2] appended #3: Bob DEPOSIT $300.00 -> ACC_202 (term 1)
+[  1332 ms] [Consensus] [Node 0 | T1] entry #3 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1332 ms] [Ledger] [Node 0 | T1] applied #3: ACC_202 balance = $300.00
+[  1334 ms] [Client] txn 2 COMMITTED at log index #3 in 2 ms
+----------------------------------------------------------------------
+[  1334 ms] [Client] txn 3: Charlie DEPOSIT $1200.00 -> ACC_303
+[  1334 ms] [Router] writes always go to the leader -> Node 0  (account ACC_303 is owned by Node 2 on the hash ring, used for reads)
+[  1334 ms] [Node 0 | T1] appended #4 to its log, replicating to followers...
+[  1334 ms]   -> [Node 4] appended #4: Charlie DEPOSIT $1200.00 -> ACC_303 (term 1)
+[  1335 ms]   -> [Node 2] appended #4: Charlie DEPOSIT $1200.00 -> ACC_303 (term 1)
+[  1335 ms]   -> [Node 3] appended #4: Charlie DEPOSIT $1200.00 -> ACC_303 (term 1)
+[  1335 ms] [Consensus] [Node 0 | T1] entry #4 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1335 ms] [Ledger] [Node 0 | T1] applied #4: ACC_303 balance = $1200.00
+[  1335 ms]   -> [Node 1] appended #4: Charlie DEPOSIT $1200.00 -> ACC_303 (term 1)
+[  1337 ms] [Client] txn 3 COMMITTED at log index #4 in 2 ms
+----------------------------------------------------------------------
+[  1337 ms] [Client] txn 4: Charlie TRANSFER $250.00 ACC_303 -> ACC_101
+[  1337 ms] [Router] writes always go to the leader -> Node 0  (account ACC_303 is owned by Node 2 on the hash ring, used for reads)
+[  1337 ms] [Node 0 | T1] appended #5 to its log, replicating to followers...
+[  1337 ms]   -> [Node 3] appended #5: Charlie TRANSFER $250.00 ACC_303 -> ACC_101 (term 1)
+[  1337 ms]   -> [Node 4] appended #5: Charlie TRANSFER $250.00 ACC_303 -> ACC_101 (term 1)
+[  1337 ms]   -> [Node 2] appended #5: Charlie TRANSFER $250.00 ACC_303 -> ACC_101 (term 1)
+[  1337 ms]   -> [Node 1] appended #5: Charlie TRANSFER $250.00 ACC_303 -> ACC_101 (term 1)
+[  1337 ms] [Consensus] [Node 0 | T1] entry #5 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1337 ms] [Ledger] [Node 0 | T1] applied #5: ACC_303 = $950.00, ACC_101 = $750.00
+[  1339 ms] [Client] txn 4 COMMITTED at log index #5 in 2 ms
+----------------------------------------------------------------------
+[  1339 ms] [Client] txn 5: Bob WITHDRAW $150.00 <- ACC_202
+[  1339 ms] [Router] writes always go to the leader -> Node 0  (account ACC_202 is owned by Node 0 on the hash ring, used for reads)
+[  1339 ms] [Node 0 | T1] appended #6 to its log, replicating to followers...
+[  1339 ms]   -> [Node 4] appended #6: Bob WITHDRAW $150.00 <- ACC_202 (term 1)
+[  1339 ms]   -> [Node 2] appended #6: Bob WITHDRAW $150.00 <- ACC_202 (term 1)
+[  1339 ms] [Consensus] [Node 0 | T1] entry #6 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1339 ms] [Ledger] [Node 0 | T1] applied #6: ACC_202 balance = $150.00
+[  1339 ms]   -> [Node 3] appended #6: Bob WITHDRAW $150.00 <- ACC_202 (term 1)
+[  1339 ms]   -> [Node 1] appended #6: Bob WITHDRAW $150.00 <- ACC_202 (term 1)
+[  1341 ms] [Client] txn 5 COMMITTED at log index #6 in 2 ms
+----------------------------------------------------------------------
+[  1341 ms] [Client] txn 6: Bob WITHDRAW $900.00 <- ACC_202
+[  1341 ms] [Router] writes always go to the leader -> Node 0  (account ACC_202 is owned by Node 0 on the hash ring, used for reads)
+[  1341 ms] [Node 0 | T1] appended #7 to its log, replicating to followers...
+[  1341 ms]   -> [Node 3] appended #7: Bob WITHDRAW $900.00 <- ACC_202 (term 1)
+[  1341 ms]   -> [Node 4] appended #7: Bob WITHDRAW $900.00 <- ACC_202 (term 1)
+[  1341 ms]   -> [Node 1] appended #7: Bob WITHDRAW $900.00 <- ACC_202 (term 1)
+[  1341 ms]   -> [Node 2] appended #7: Bob WITHDRAW $900.00 <- ACC_202 (term 1)
+[  1341 ms] [Consensus] [Node 0 | T1] entry #7 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  1341 ms] [Ledger] [Node 0 | T1] applied #7: REJECTED (insufficient funds: ACC_202 has $150.00)
+[  1343 ms] [Client] txn 6 COMMITTED at log index #7 in 2 ms
+
+  Cluster after Scenario 1
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | LEADER    |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  |    1 | Follower  |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  |    2 | Follower  |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  |    3 | Follower  |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  |    4 | Follower  |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  1605 ms] [Check] Committed logs and ledgers identical on all nodes: PASS
+
+######################################################################
+#  SCENARIO 2: Leader crash, failover and recovery
+######################################################################
+[  1605 ms] !!! [Fault] [Node 0 | T1] CRASHED (was LEADER)
+[  2732 ms] [Node 3 | T2] election timeout -> CANDIDATE, requesting votes
+[  2732 ms]   -> [Node 4] votes for Node 3 in Term 2
+[  2732 ms]   -> [Node 1] votes for Node 3 in Term 2
+[  2732 ms]   -> [Node 2] votes for Node 3 in Term 2
+
+[  2732 ms] >>> [Node 3 | T2] WON THE ELECTION with 3/5 votes -> LEADER <<<
+[  2734 ms] [Failover] Node 3 took over from crashed Node 0 in 1128 ms
+----------------------------------------------------------------------
+[  2734 ms] [Client] txn 7: David DEPOSIT $800.00 -> ACC_404
+[  2734 ms] [Router] writes always go to the leader -> Node 3  (account ACC_404 is owned by Node 3 on the hash ring, used for reads)
+[  2734 ms] [Node 3 | T2] appended #9 to its log, replicating to followers...
+[  2734 ms]   -> [Node 4] appended #9: David DEPOSIT $800.00 -> ACC_404 (term 2)
+[  2734 ms]   -> [Node 2] appended #9: David DEPOSIT $800.00 -> ACC_404 (term 2)
+[  2734 ms]   -> [Node 1] appended #9: David DEPOSIT $800.00 -> ACC_404 (term 2)
+[  2734 ms] [Consensus] [Node 3 | T2] entry #9 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  2734 ms] [Ledger] [Node 3 | T2] applied #9: ACC_404 balance = $800.00
+[  2736 ms] [Client] txn 7 COMMITTED at log index #9 in 2 ms
+----------------------------------------------------------------------
+[  2736 ms] [Client] txn 8: Alice TRANSFER $100.00 ACC_101 -> ACC_404
+[  2736 ms] [Router] writes always go to the leader -> Node 3  (account ACC_101 is owned by Node 2 on the hash ring, used for reads)
+[  2736 ms] [Node 3 | T2] appended #10 to its log, replicating to followers...
+[  2736 ms]   -> [Node 4] appended #10: Alice TRANSFER $100.00 ACC_101 -> ACC_404 (term 2)
+[  2736 ms]   -> [Node 1] appended #10: Alice TRANSFER $100.00 ACC_101 -> ACC_404 (term 2)
+[  2736 ms]   -> [Node 2] appended #10: Alice TRANSFER $100.00 ACC_101 -> ACC_404 (term 2)
+[  2736 ms] [Consensus] [Node 3 | T2] entry #10 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  2736 ms] [Ledger] [Node 3 | T2] applied #10: ACC_101 = $650.00, ACC_404 = $900.00
+[  2738 ms] [Client] txn 8 COMMITTED at log index #10 in 2 ms
+
+  While Node 0 is down (4/5 nodes still form a majority)
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | CRASHED   |    1 |       7 |      7 |       7 | 101:750 202:150 303:950                                  |
+  |    1 | Follower  |    2 |      10 |      9 |       9 | 101:750 202:150 303:950 404:800                          |
+  |    2 | Follower  |    2 |      10 |      9 |       9 | 101:750 202:150 303:950 404:800                          |
+  |    3 | LEADER    |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    4 | Follower  |    2 |      10 |      9 |       9 | 101:750 202:150 303:950 404:800                          |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  2738 ms] +++ [Recovery] [Node 0 | T1] restarted as Follower with 7 log entries; will catch up from the leader
+[  2986 ms]   -> [Node 0] appended #9: David DEPOSIT $800.00 -> ACC_404 (term 2)
+[  2986 ms]   -> [Node 0] appended #10: Alice TRANSFER $100.00 ACC_101 -> ACC_404 (term 2)
+
+  After Node 0 recovered and caught up
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | Follower  |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    1 | Follower  |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    2 | Follower  |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    3 | LEADER    |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    4 | Follower  |    2 |      10 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  3000 ms] [Check] Committed logs and ledgers identical on all nodes: PASS
+
+######################################################################
+#  SCENARIO 3: Network partition (split-brain) and healing
+######################################################################
+[  3000 ms] !!! [Fault] NETWORK PARTITION: {3,4}  |  {0,1,2}
+----------------------------------------------------------------------
+[  3000 ms] [Client] txn 9: Eve DEPOSIT $9999.00 -> ACC_505
+[  3000 ms] [Router] writes always go to the leader -> Node 3  (account ACC_505 is owned by Node 4 on the hash ring, used for reads)
+[  3000 ms] [Node 3 | T2] appended #11 to its log, replicating to followers...
+[  3001 ms]   -> [Node 4] appended #11: Eve DEPOSIT $9999.00 -> ACC_505 (term 2)
+[  4066 ms] [Node 1 | T3] election timeout -> CANDIDATE, requesting votes
+[  4066 ms]   -> [Node 2] votes for Node 1 in Term 3
+[  4066 ms]   -> [Node 0] votes for Node 1 in Term 3
+
+[  4066 ms] >>> [Node 1 | T3] WON THE ELECTION with 3/5 votes -> LEADER <<<
+[  5502 ms] [Client] txn 9 NOT committed after 2501 ms (leader could not reach a majority)
+[  5502 ms] [Split-brain] nodes that believe they are leader: 1 3 -> only Node 1 (term 3) has a majority and can commit
+----------------------------------------------------------------------
+[  5502 ms] [Client] txn 10: Frank DEPOSIT $400.00 -> ACC_505
+[  5502 ms] [Router] writes always go to the leader -> Node 1  (account ACC_505 is owned by Node 4 on the hash ring, used for reads)
+[  5502 ms] [Node 1 | T3] appended #12 to its log, replicating to followers...
+[  5502 ms]   -> [Node 2] appended #12: Frank DEPOSIT $400.00 -> ACC_505 (term 3)
+[  5502 ms]   -> [Node 0] appended #12: Frank DEPOSIT $400.00 -> ACC_505 (term 3)
+[  5502 ms] [Consensus] [Node 1 | T3] entry #12 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  5503 ms] [Ledger] [Node 1 | T3] applied #12: ACC_505 balance = $400.00
+[  5504 ms] [Client] txn 10 COMMITTED at log index #12 in 2 ms
+----------------------------------------------------------------------
+[  5504 ms] [Client] txn 11: Frank WITHDRAW $50.00 <- ACC_505
+[  5504 ms] [Router] writes always go to the leader -> Node 1  (account ACC_505 is owned by Node 4 on the hash ring, used for reads)
+[  5504 ms] [Node 1 | T3] appended #13 to its log, replicating to followers...
+[  5504 ms]   -> [Node 0] appended #13: Frank WITHDRAW $50.00 <- ACC_505 (term 3)
+[  5505 ms]   -> [Node 2] appended #13: Frank WITHDRAW $50.00 <- ACC_505 (term 3)
+[  5505 ms] [Consensus] [Node 1 | T3] entry #13 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  5505 ms] [Ledger] [Node 1 | T3] applied #13: ACC_505 balance = $350.00
+[  5507 ms] [Client] txn 11 COMMITTED at log index #13 in 2 ms
+
+  During the partition
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | Follower  |    3 |      13 |     12 |      12 | 101:650 202:150 303:950 404:900 505:400                  |
+  |    1 | LEADER    |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  |    2 | Follower  |    3 |      13 |     12 |      12 | 101:650 202:150 303:950 404:900 505:400                  |
+  |    3 | LEADER    |    2 |      11 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  |    4 | Follower  |    2 |      11 |     10 |      10 | 101:650 202:150 303:950 404:900                          |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  5507 ms] +++ [Recovery] partition healed
+[  5755 ms]   -> [Node 4] removes conflicting entries #11..#11 (written by an old leader, never committed)
+[  5755 ms]   -> [Node 4] appended #12: Frank DEPOSIT $400.00 -> ACC_505 (term 3)
+[  5755 ms] [Node 3 | T2] saw higher term 3 from Node 1 -> old leader STEPS DOWN
+[  5755 ms] [Node 3 | T3] steps down to Follower
+[  5755 ms]   -> [Node 3] removes conflicting entries #11..#11 (written by an old leader, never committed)
+[  5755 ms]   -> [Node 4] appended #13: Frank WITHDRAW $50.00 <- ACC_505 (term 3)
+[  5755 ms]   -> [Node 3] appended #12: Frank DEPOSIT $400.00 -> ACC_505 (term 3)
+[  5755 ms]   -> [Node 3] appended #13: Frank WITHDRAW $50.00 <- ACC_505 (term 3)
+
+  After healing (Eve's $9999 deposit was never committed, so it is gone everywhere)
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | Follower  |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  |    1 | LEADER    |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  |    2 | Follower  |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  |    3 | Follower  |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  |    4 | Follower  |    3 |      13 |     13 |      13 | 101:650 202:150 303:950 404:900 505:350                  |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  6070 ms] [Check] Committed logs and ledgers identical on all nodes: PASS
+
+######################################################################
+#  SCENARIO 4: Unreliable network - 20% packet loss, 20-120 ms delay
+######################################################################
+----------------------------------------------------------------------
+[  6070 ms] [Client] txn 12: Grace DEPOSIT $700.00 -> ACC_606
+[  6070 ms] [Router] writes always go to the leader -> Node 1  (account ACC_606 is owned by Node 0 on the hash ring, used for reads)
+[  6070 ms] [Node 1 | T3] appended #14 to its log, replicating to followers...
+[  6106 ms]   -> [Node 3] appended #14: Grace DEPOSIT $700.00 -> ACC_606 (term 3)
+[  6169 ms]   -> [Node 2] appended #14: Grace DEPOSIT $700.00 -> ACC_606 (term 3)
+[  6187 ms]   -> [Node 0] appended #14: Grace DEPOSIT $700.00 -> ACC_606 (term 3)
+[  6444 ms] [Consensus] [Node 1 | T3] entry #14 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  6444 ms] [Ledger] [Node 1 | T3] applied #14: ACC_606 balance = $700.00
+[  6446 ms] [Client] txn 12 COMMITTED at log index #14 in 375 ms
+----------------------------------------------------------------------
+[  6446 ms] [Client] txn 13: Grace TRANSFER $200.00 ACC_606 -> ACC_202
+[  6446 ms] [Router] writes always go to the leader -> Node 1  (account ACC_606 is owned by Node 0 on the hash ring, used for reads)
+[  6446 ms] [Node 1 | T3] appended #15 to its log, replicating to followers...
+[  6527 ms]   -> [Node 2] appended #15: Grace TRANSFER $200.00 ACC_606 -> ACC_202 (term 3)
+[  6564 ms]   -> [Node 4] appended #14: Grace DEPOSIT $700.00 -> ACC_606 (term 3)
+[  6564 ms]   -> [Node 4] appended #15: Grace TRANSFER $200.00 ACC_606 -> ACC_202 (term 3)
+[  6646 ms] [Consensus] [Node 1 | T3] entry #15 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  6646 ms] [Ledger] [Node 1 | T3] applied #15: ACC_606 = $500.00, ACC_202 = $350.00
+[  6647 ms] [Client] txn 13 COMMITTED at log index #15 in 201 ms
+----------------------------------------------------------------------
+[  6647 ms] [Client] txn 14: Hannah DEPOSIT $50.00 -> ACC_707
+[  6647 ms] [Router] writes always go to the leader -> Node 1  (account ACC_707 is owned by Node 3 on the hash ring, used for reads)
+[  6647 ms] [Node 1 | T3] appended #16 to its log, replicating to followers...
+[  6714 ms]   -> [Node 2] appended #16: Hannah DEPOSIT $50.00 -> ACC_707 (term 3)
+[  6718 ms]   -> [Node 0] appended #15: Grace TRANSFER $200.00 ACC_606 -> ACC_202 (term 3)
+[  6718 ms]   -> [Node 0] appended #16: Hannah DEPOSIT $50.00 -> ACC_707 (term 3)
+[  6728 ms]   -> [Node 3] appended #15: Grace TRANSFER $200.00 ACC_606 -> ACC_202 (term 3)
+[  6728 ms]   -> [Node 3] appended #16: Hannah DEPOSIT $50.00 -> ACC_707 (term 3)
+[  6833 ms] [Consensus] [Node 1 | T3] entry #16 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  6833 ms] [Ledger] [Node 1 | T3] applied #16: ACC_707 balance = $50.00
+[  6834 ms] [Client] txn 14 COMMITTED at log index #16 in 187 ms
+----------------------------------------------------------------------
+[  6834 ms] [Client] txn 15: Grace WITHDRAW $100.00 <- ACC_606
+[  6834 ms] [Router] writes always go to the leader -> Node 1  (account ACC_606 is owned by Node 0 on the hash ring, used for reads)
+[  6834 ms] [Node 1 | T3] appended #17 to its log, replicating to followers...
+[  6855 ms]   -> [Node 0] appended #17: Grace WITHDRAW $100.00 <- ACC_606 (term 3)
+[  6904 ms]   -> [Node 4] appended #16: Hannah DEPOSIT $50.00 -> ACC_707 (term 3)
+[  6904 ms]   -> [Node 4] appended #17: Grace WITHDRAW $100.00 <- ACC_606 (term 3)
+[  6923 ms]   -> [Node 3] appended #17: Grace WITHDRAW $100.00 <- ACC_606 (term 3)
+[  6923 ms]   -> [Node 2] appended #17: Grace WITHDRAW $100.00 <- ACC_606 (term 3)
+[  6975 ms] [Consensus] [Node 1 | T3] entry #17 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  6975 ms] [Ledger] [Node 1 | T3] applied #17: ACC_606 balance = $400.00
+[  6975 ms] [Client] txn 15 COMMITTED at log index #17 in 140 ms
+----------------------------------------------------------------------
+[  6975 ms] [Client] txn 16: David TRANSFER $300.00 ACC_404 -> ACC_707
+[  6975 ms] [Router] writes always go to the leader -> Node 1  (account ACC_404 is owned by Node 3 on the hash ring, used for reads)
+[  6975 ms] [Node 1 | T3] appended #18 to its log, replicating to followers...
+[  7014 ms]   -> [Node 2] appended #18: David TRANSFER $300.00 ACC_404 -> ACC_707 (term 3)
+[  7016 ms]   -> [Node 0] appended #18: David TRANSFER $300.00 ACC_404 -> ACC_707 (term 3)
+[  7080 ms]   -> [Node 3] appended #18: David TRANSFER $300.00 ACC_404 -> ACC_707 (term 3)
+[  7089 ms]   -> [Node 4] appended #18: David TRANSFER $300.00 ACC_404 -> ACC_707 (term 3)
+[  7129 ms] [Consensus] [Node 1 | T3] entry #18 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  7129 ms] [Ledger] [Node 1 | T3] applied #18: ACC_404 = $600.00, ACC_707 = $350.00
+[  7129 ms] [Client] txn 16 COMMITTED at log index #18 in 154 ms
+[  7129 ms] +++ network back to normal
+
+  After Scenario 4
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | Follower  |    3 |      18 |     18 |      18 | 101:650 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    1 | LEADER    |    3 |      18 |     18 |      18 | 101:650 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    2 | Follower  |    3 |      18 |     18 |      18 | 101:650 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    3 | Follower  |    3 |      18 |     18 |      18 | 101:650 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    4 | Follower  |    3 |      18 |     18 |      18 | 101:650 202:350 303:950 404:600 505:350 606:400 707:350  |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  7231 ms] [Check] Committed logs and ledgers identical on all nodes: PASS
+
+######################################################################
+#  SCENARIO 5: CQRS - reads served by followers chosen by the hash ring
+######################################################################
+----------------------------------------------------------------------
+[  7231 ms] [Client] txn 17: Alice DEPOSIT $1.00 -> ACC_101
+[  7231 ms] [Router] writes always go to the leader -> Node 1  (account ACC_101 is owned by Node 2 on the hash ring, used for reads)
+[  7231 ms] [Node 1 | T3] appended #19 to its log, replicating to followers...
+[  7231 ms]   -> [Node 2] appended #19: Alice DEPOSIT $1.00 -> ACC_101 (term 3)
+[  7231 ms]   -> [Node 3] appended #19: Alice DEPOSIT $1.00 -> ACC_101 (term 3)
+[  7231 ms]   -> [Node 0] appended #19: Alice DEPOSIT $1.00 -> ACC_101 (term 3)
+[  7231 ms]   -> [Node 4] appended #19: Alice DEPOSIT $1.00 -> ACC_101 (term 3)
+[  7231 ms] [Consensus] [Node 1 | T3] entry #19 stored on 3/5 nodes (majority = 3) -> COMMITTED
+[  7231 ms] [Ledger] [Node 1 | T3] applied #19: ACC_101 balance = $651.00
+[  7233 ms] [Client] txn 17 COMMITTED at log index #19 in 2 ms
+[  7233 ms] [Read] ACC_101 -> hash ring -> Node 2 (follower): balance $650.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_202 -> hash ring -> Node 0 (follower): balance $350.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_303 -> hash ring -> Node 2 (follower): balance $950.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_404 -> hash ring -> Node 3 (follower): balance $600.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_505 -> hash ring -> Node 4 (follower): balance $350.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_606 -> hash ring -> Node 0 (follower): balance $400.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7233 ms] [Read] ACC_707 -> hash ring -> Node 3 (follower): balance $350.00   [replica applied #18, leader committed #19 -> STALE read]
+[  7496 ms] [Read] after one heartbeat: ACC_101 on Node 2 = $651.00 (applied #19)
+
+  FINAL cluster state
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  | Node | State     | Term | Log len | Commit | Applied | Ledger (account:balance)                                 |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+  |    0 | Follower  |    3 |      19 |     19 |      19 | 101:651 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    1 | LEADER    |    3 |      19 |     19 |      19 | 101:651 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    2 | Follower  |    3 |      19 |     19 |      19 | 101:651 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    3 | Follower  |    3 |      19 |     19 |      19 | 101:651 202:350 303:950 404:600 505:350 606:400 707:350  |
+  |    4 | Follower  |    3 |      19 |     19 |      19 | 101:651 202:350 303:950 404:600 505:350 606:400 707:350  |
+  +------+-----------+------+---------+--------+---------+----------------------------------------------------------+
+[  7496 ms] [Check] Committed logs and ledgers identical on all nodes: PASS
+
+================== PERFORMANCE METRICS ==================
+  Client transactions submitted : 17
+  Committed                     : 16
+  Not committed (no majority)   : 1
+  Commit latency  min/avg/max   : 2 / 67.4 / 375 ms
+  Commit latency  median        : 2 ms
+  Leader failover time (avg)    : 1128 ms over 1 failover(s)
+  Elections started             : 3
+  Leaders elected               : 3
+  Messages sent / delivered     : 300 / 231
+  Messages dropped (faults)     : 69
+  Election Safety (<=1 leader/term): HOLDS
+=========================================================
+Per-transaction results written to results.csv
