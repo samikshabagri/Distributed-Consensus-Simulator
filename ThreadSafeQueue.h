@@ -20,7 +20,7 @@ public:
     // Pushes an item into the queue safely
     void push(T item) {
         unique_lock<mutex> lock(mtx);
-        q.push(move(item));
+        q.push(std::move(item));
         lock.unlock();
         cv.notify_one();
     }
@@ -31,7 +31,7 @@ public:
         if (q.empty()) {
             return false;
         }
-        popped_value = move(q.front());
+        popped_value = std::move(q.front());
         q.pop();
         return true;
     }
@@ -42,7 +42,7 @@ public:
         if (!cv.wait_for(lock, chrono::milliseconds(timeoutMillis), [this] { return !q.empty(); })) {
             return false; // Timeout occurred
         }
-        popped_value = move(q.front());
+        popped_value = std::move(q.front());
         q.pop();
         return true;
     }
@@ -50,6 +50,13 @@ public:
     bool empty() {
         lock_guard<mutex> lock(mtx);
         return q.empty();
+    }
+
+    // Phase III: throw away everything waiting (used when a node crashes)
+    void clear() {
+        lock_guard<mutex> lock(mtx);
+        queue<T> emptyQueue;
+        swap(q, emptyQueue);
     }
 };
 
