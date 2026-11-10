@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Consensus Simulator</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --card: #111a2e;
+    --border: #1f2d4d;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --leader: #f59e0b;
+    --follower: #38bdf8;
+    --scaled: #22c55e;
+    --crashed: #ef4444;
+    --candidate: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 18px;
+    line-height: 1.4;
+  }
+  .container { max-width: 1320px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.2px; }
+  .subtitle { font-size: 13px; color: var(--muted); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; }
+  .stat-value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .grid-equal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 960px) {
+    .grid-2, .grid-equal { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  .panel-title { font-size: 14px; font-weight: 600; }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #1e293b;
+    color: var(--muted);
+  }
+  .badge-leader { background: rgba(245,158,11,0.18); color: var(--leader); }
+  .badge-follower { background: rgba(56,189,248,0.18); color: var(--follower); }
+  .badge-scaled { background: rgba(34,197,94,0.18); color: var(--scaled); }
+  .badge-crashed { background: rgba(239,68,68,0.18); color: var(--crashed); }
+
+  svg { width: 100%; display: block; }
+
+  .node-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .node-card {
+    background: #0d1526;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .node-card.leader { border-color: var(--leader); }
+  .node-card.scaled { border-color: var(--scaled); }
+  .node-card.crashed { border-color: var(--crashed); opacity: 0.7; }
+  .node-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .node-name { font-weight: 700; font-size: 14px; }
+  .node-meta { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 7px;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 7px 12px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: scale(0.98); }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-amber { background: var(--leader); color: #111827; }
+  .btn-cyan { background: var(--follower); color: #0b1120; }
+  .btn-green { background: var(--scaled); color: #052e16; }
+  .btn-red { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+  .btn-recover { background: rgba(34,197,94,0.2); color: #86efac; border: 1px solid rgba(34,197,94,0.4); }
+  .btn-sm { padding: 4px 8px; font-size: 11px; margin-top: 8px; width: 100%; }
+
+  .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  input, select {
+    background: #0d1526;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  .result-box {
+    background: #0d1526;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 38px;
+  }
+
+  .progress-wrap {
+    background: #0d1526;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    height: 12px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #f59e0b, #ef4444);
+    transition: width 0.2s;
+    width: 0%;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+
+  .log-box {
+    background: #090e1a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    height: 210px;
+    overflow-y: auto;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    color: #cbd5e1;
+  }
+  .log-line { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .log-scale { color: #4ade80; font-weight: 600; }
+  .log-leader { color: #fbbf24; font-weight: 600; }
+  .log-crash { color: #f87171; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Distributed Consensus Simulator</h1>
+      <div class="subtitle">Raft Leader Election &amp; Replication • Consistent Hashing Reads • Auto-Scaling Load Balancer</div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--leader)"></span>Leader (Writes)</span>
+      <span><span class="dot" style="background:var(--follower)"></span>Follower (Reads)</span>
+      <span><span class="dot" style="background:var(--scaled)"></span>Auto-Scaled Follower</span>
+      <span><span class="dot" style="background:var(--crashed)"></span>Crashed</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Raft Leader</div>
+      <div class="stat-value" id="statLeader" style="color:var(--leader)">-</div>
+      <div class="stat-sub" id="statTerm">Term -</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Cluster Servers</div>
+      <div class="stat-value" id="statNodes">-</div>
+      <div class="stat-sub" id="statScaled">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Load / Capacity</div>
+      <div class="stat-value" id="statLoad">0</div>
+      <div class="stat-sub" id="statThreshold">Scale threshold: -</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Messages</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub" id="statSplit">Writes: 0 | Reads: 0</div>
+    </div>
+  </div>
+
+  <!-- Cluster Topology + Load Balancer -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Live Cluster &amp; Load Balancer Routing</span>
+        <span class="badge" id="clusterBadge">5 Servers</span>
+      </div>
+      <svg id="clusterSvg" viewBox="0 0 660 240" style="height:240px;"></svg>
+      <div class="node-list" id="nodeList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Load Balancer &amp; Auto-Scaling Monitor</span>
+        <span class="badge" id="burstBadge">Idle</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <button class="btn-amber" onclick="triggerBurst(3000)">Send 3,000 Messages (High Load)</button>
+        <button class="btn-primary" onclick="triggerBurst(5000)">Send 5,000 Messages</button>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="loadBar"></div></div>
+      <div class="stat-sub" id="burstText" style="margin-bottom:8px;">
+        When load exceeds follower capacity, Load Balancer shoots up a new Follower server.
+      </div>
+      <svg id="loadChartSvg" viewBox="0 0 460 175" style="height:175px; background:#090e1a; border-radius:8px; border:1px solid var(--border);"></svg>
+    </div>
+  </div>
+
+  <!-- Consistent Hash Ring + Read/Write Controls -->
+  <div class="grid-equal">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Consistent Hash Ring (Follower Read Selection)</span>
+        <span class="badge badge-follower" id="ringBadge">Last route: -</span>
+      </div>
+      <svg id="ringSvg" viewBox="0 0 420 230" style="height:230px;"></svg>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Client Operations (Writes → Leader, Reads → Follower)</span>
+      </div>
+      <div style="font-size:12px; color:var(--leader); font-weight:600; margin-bottom:4px;">WRITE OPERATION (Routed to Leader)</div>
+      <div class="form-row">
+        <select id="wType" onchange="toggleToAcc()">
+          <option value="DEPOSIT">DEPOSIT</option>
+          <option value="WITHDRAW">WITHDRAW</option>
+          <option value="TRANSFER">TRANSFER</option>
+        </select>
+        <input id="wAcc" value="ACC_101" style="width:95px;" placeholder="Account">
+        <input id="wTo" value="ACC_202" style="width:95px; display:none;" placeholder="To Acc">
+        <input id="wAmt" type="number" value="100" style="width:80px;" placeholder="Amount">
+        <button class="btn-amber" onclick="doWrite()">Send Write</button>
+      </div>
+      <div class="result-box" id="writeResult" style="margin-bottom:12px;">Submit a write to replicate through the Raft Leader.</div>
+
+      <div style="font-size:12px; color:var(--follower); font-weight:600; margin-bottom:4px;">READ OPERATION (Routed to Follower via Consistent Hashing)</div>
+      <div class="form-row">
+        <input id="rAcc" value="ACC_101" style="width:130px;" placeholder="Account">
+        <button class="btn-cyan" onclick="doRead()">Read Balance</button>
+      </div>
+      <div class="result-box" id="readResult">Read picks a healthy Follower using Consistent Hashing.</div>
+    </div>
+  </div>
+
+  <!-- Ledger + Logs -->
+  <div class="grid-equal">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Replicated Bank Ledger</span>
+        <span class="badge">Consistent across cluster</span>
+      </div>
+      <table>
+        <thead><tr><th>Account</th><th>Balance</th></tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Live System Events</span>
+        <span class="badge">Raft + Hash + Auto-Scaler</span>
+      </div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleToAcc() {
+  document.getElementById('wTo').style.display =
+    document.getElementById('wType').value === 'TRANSFER' ? 'inline-block' : 'none';
+}
+
+async function doWrite() {
+  const type = document.getElementById('wType').value;
+  const acc = document.getElementById('wAcc').value.trim();
+  const to = document.getElementById('wTo').value.trim();
+  const amt = document.getElementById('wAmt').value;
+  const url = `/write?type=${encodeURIComponent(type)}&acc=${encodeURIComponent(acc)}&to=${encodeURIComponent(to)}&amt=${encodeURIComponent(amt)}`;
+  const res = await fetch(url).then(r => r.json());
+  document.getElementById('writeResult').innerHTML = res.ok
+    ? `<span style="color:var(--leader)">Committed by Leader <b>Node ${res.leaderId}</b> and replicated to Followers.</span>`
+    : `<span style="color:var(--crashed)">Write failed (no active Leader yet).</span>`;
+  refresh();
+}
+
+async function doRead() {
+  const acc = document.getElementById('rAcc').value.trim();
+  const res = await fetch(`/read?acc=${encodeURIComponent(acc)}`).then(r => r.json());
+  document.getElementById('readResult').innerHTML = res.ok
+    ? `<span style="color:var(--follower)">Consistent Hash routed <b>${res.account}</b> to Follower <b>Node ${res.followerId}</b> → Balance: <b>$${res.balance.toFixed(2)}</b></span>`
+    : `<span style="color:var(--crashed)">No healthy follower available.</span>`;
+  refresh();
+}
+
+async function triggerBurst(n) {
+  await fetch(`/burst?n=${n}`);
+  refresh();
+}
+
+async function toggleNode(id, crashed) {
+  await fetch(`/${crashed ? 'recover' : 'crash'}?id=${id}`);
+  refresh();
+}
+
+function drawCluster(data) {
+  const svg = document.getElementById('clusterSvg');
+  const nodes = data.nodes;
+  const w = 660, h = 240;
+  const lbX = w / 2, lbY = 36;
+
+  let out = `
+    <defs>
+      <marker id="arrGold" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/>
+      </marker>
+      <marker id="arrCyan" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#38bdf8"/>
+      </marker>
+    </defs>
+    <rect x="${lbX - 115}" y="10" width="230" height="44" rx="10" fill="#172542" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="${lbX}" y="30" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="700">LOAD BALANCER + HASH RING</text>
+    <text x="${lbX}" y="45" text-anchor="middle" fill="#94a3b8" font-size="10">Load: ${data.lb.currentLoad} / Cap: ${data.lb.threshold}</text>
+  `;
+
+  const n = nodes.length;
+  const margin = 46;
+  const span = w - margin * 2;
+  const yPos = 165;
+
+  nodes.forEach((node, idx) => {
+    const x = n === 1 ? w / 2 : margin + (span * idx) / (n - 1);
+    const isLeader = node.state === 'LEADER';
+    const isCand = node.state === 'Candidate';
+    const color = node.crashed ? '#ef4444' : isLeader ? '#f59e0b' : isCand ? '#a855f7' : node.autoScaled ? '#22c55e' : '#38bdf8';
+
+    if (!node.crashed) {
+      if (isLeader) {
+        out += `<line x1="${lbX}" y1="54" x2="${x}" y2="${yPos - 34}" stroke="#f59e0b" stroke-width="2.2" marker-end="url(#arrGold)"/>`;
+      } else {
+        out += `<line x1="${lbX}" y1="54" x2="${x}" y2="${yPos - 34}" stroke="#38bdf8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrCyan)"/>`;
+      }
+    }
+
+    const r = n > 7 ? 24 : 28;
+    out += `
+      <circle cx="${x}" cy="${yPos}" r="${r}" fill="#0d1526" stroke="${color}" stroke-width="${isLeader ? 3 : 2}"/>
+      <text x="${x}" y="${yPos - 2}" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="700">N${node.id}</text>
+      <text x="${x}" y="${yPos + 12}" text-anchor="middle" fill="${color}" font-size="9" font-weight="700">${node.crashed ? 'DOWN' : isLeader ? 'LEADER' : node.autoScaled ? 'NEW' : 'FOLLOWER'}</text>
+      <text x="${x}" y="${yPos + r + 15}" text-anchor="middle" fill="#94a3b8" font-size="10">R:${node.readsHandled} W:${node.writesHandled}</text>
+    `;
+  });
+
+  svg.innerHTML = out;
+}
+
+function drawRing(data) {
+  const svg = document.getElementById('ringSvg');
+  const cx = 135, cy = 115, R = 82;
+  const followers = data.nodes.filter(n => !n.crashed && n.state !== 'LEADER');
+
+  let out = `
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#283a61" stroke-width="6"/>
+    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#94a3b8" font-size="11">Hash Ring</text>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="700">${followers.length} Followers</text>
+  `;
+
+  const posMap = {};
+  followers.forEach((f, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(1, followers.length) - Math.PI / 2;
+    const x = cx + R * Math.cos(angle);
+    const y = cy + R * Math.sin(angle);
+    posMap[f.id] = { x, y };
+    const col = f.autoScaled ? '#22c55e' : '#38bdf8';
+    const isHit = f.id === data.lb.lastReadNode;
+    out += `
+      <circle cx="${x}" cy="${y}" r="${isHit ? 17 : 14}" fill="#0d1526" stroke="${col}" stroke-width="${isHit ? 3 : 2}"/>
+      <text x="${x}" y="${y + 4}" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">N${f.id}</text>
+    `;
+  });
+
+  const lastNode = data.lb.lastReadNode;
+  if (lastNode >= 0 && posMap[lastNode]) {
+    const p = posMap[lastNode];
+    out += `<line x1="${cx}" y1="${cy + 22}" x2="${p.x}" y2="${p.y}" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="3 2"/>`;
+  }
+
+  // Right-side explanation box inside SVG
+  out += `
+    <rect x="248" y="34" width="158" height="160" rx="8" fill="#0d1526" stroke="#1f2d4d"/>
+    <text x="260" y="58" fill="#94a3b8" font-size="11">Latest Read Route</text>
+    <text x="260" y="80" fill="#f8fafc" font-size="13" font-weight="700">Key: ${data.lb.lastReadAcc || '-'}</text>
+    <text x="260" y="104" fill="#38bdf8" font-size="13" font-weight="700">→ Follower Node ${lastNode >= 0 ? lastNode : '-'}</text>
+    <text x="260" y="128" fill="#cbd5e1" font-size="12">Balance: $${(data.lb.lastReadBal || 0).toFixed(2)}</text>
+    <text x="260" y="158" fill="#94a3b8" font-size="10">Leader is excluded from reads.</text>
+    <text x="260" y="174" fill="#22c55e" font-size="10">New followers join ring live.</text>
+  `;
+
+  svg.innerHTML = out;
+  document.getElementById('ringBadge').textContent = lastNode >= 0
+    ? `${data.lb.lastReadAcc} → Node ${lastNode}`
+    : 'No read yet';
+}
+
+function drawLoadChart(data) {
+  const svg = document.getElementById('loadChartSvg');
+  const hist = data.lb.history || [];
+  const thr = Math.max(1, data.lb.threshold || 480);
+  const maxVal = Math.max(thr * 1.35, ...hist, 100);
+  const W = 460, H = 175, padL = 42, padR = 12, padT = 14, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB;
+
+  const yFor = v => padT + ch - (v / maxVal) * ch;
+  const thrY = yFor(thr);
+
+  let pts = '';
+  let area = `${padL},${padT + ch} `;
+  hist.forEach((v, i) => {
+    const x = padL + (i / Math.max(1, hist.length - 1)) * cw;
+    const y = yFor(v);
+    pts += `${x},${y} `;
+    area += `${x},${y} `;
+  });
+  area += `${padL + cw},${padT + ch}`;
+
+  svg.innerHTML = `
+    <line x1="${padL}" y1="${thrY}" x2="${W - padR}" y2="${thrY}" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="${padL + 4}" y="${Math.max(12, thrY - 4)}" fill="#fca5a5" font-size="10">Auto-Scale Threshold (${thr})</text>
+    <polygon points="${area}" fill="rgba(56,189,248,0.18)"/>
+    <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2.4"/>
+    <text x="6" y="${padT + 8}" fill="#64748b" font-size="10">${Math.round(maxVal)}</text>
+    <text x="6" y="${padT + ch}" fill="#64748b" font-size="10">0</text>
+    <text x="${W / 2}" y="${H - 5}" text-anchor="middle" fill="#64748b" font-size="10">Live Message Load Over Time</text>
+  `;
+}
+
+async function refresh() {
+  try {
+    const data = await fetch('/status').then(r => r.json());
+    const scaledCount = data.nodes.filter(n => n.autoScaled).length;
+
+    document.getElementById('statLeader').textContent = data.leaderId >= 0 ? `Node ${data.leaderId}` : 'Electing...';
+    document.getElementById('statTerm').textContent = `Term ${data.term}`;
+    document.getElementById('statNodes').textContent = `${data.nodes.length} Nodes`;
+    document.getElementById('statScaled').textContent = `${scaledCount} auto-scaled follower(s)`;
+    document.getElementById('statLoad').textContent = data.lb.currentLoad;
+    document.getElementById('statThreshold').textContent = `Threshold: ${data.lb.threshold}`;
+    document.getElementById('statTotal').textContent = data.lb.totalReads + data.lb.totalWrites;
+    document.getElementById('statSplit').textContent = `Writes: ${data.lb.totalWrites} | Reads: ${data.lb.totalReads}`;
+    document.getElementById('clusterBadge').textContent = `${data.nodes.length} Servers`;
+
+    const pct = Math.min(100, Math.round((data.lb.currentLoad / Math.max(1, data.lb.threshold)) * 100));
+    document.getElementById('loadBar').style.width = `${pct}%`;
+
+    const burstBadge = document.getElementById('burstBadge');
+    if (data.lb.bursting) {
+      burstBadge.textContent = `Burst: ${data.lb.burstSent} / ${data.lb.burstTotal}`;
+      burstBadge.className = 'badge badge-leader';
+      document.getElementById('burstText').textContent = `Sending high load (${data.lb.burstSent}/${data.lb.burstTotal} messages)...`;
+    } else {
+      burstBadge.textContent = 'Idle';
+      burstBadge.className = 'badge';
+      document.getElementById('burstText').textContent = `Capacity = active followers × 120 (${data.lb.threshold}). Load above this spawns a new Follower.`;
+    }
+
+    drawCluster(data);
+    drawRing(data);
+    drawLoadChart(data);
+
+    // Node cards
+    document.getElementById('nodeList').innerHTML = data.nodes.map(n => {
+      const cls = n.crashed ? 'crashed' : n.state === 'LEADER' ? 'leader' : n.autoScaled ? 'scaled' : '';
+      const bCls = n.crashed ? 'badge-crashed' : n.state === 'LEADER' ? 'badge-leader' : n.autoScaled ? 'badge-scaled' : 'badge-follower';
+      const label = n.crashed ? 'CRASHED' : n.state === 'LEADER' ? 'LEADER' : n.autoScaled ? 'AUTO-SCALED' : 'Follower';
+      return `
+        <div class="node-card ${cls}">
+          <div class="node-top">
+            <span class="node-name">Node ${n.id}</span>
+            <span class="badge ${bCls}">${label}</span>
+          </div>
+          <div class="node-meta"><span>Term: ${n.term}</span><span>Log: ${n.lastApplied}/${n.logLen}</span></div>
+          <div class="node-meta"><span>Reads: ${n.readsHandled}</span><span>Writes: ${n.writesHandled}</span></div>
+          <button class="btn-sm ${n.crashed ? 'btn-recover' : 'btn-red'}" onclick="toggleNode(${n.id}, ${n.crashed})">
+            ${n.crashed ? 'Recover Server' : 'Crash Server'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    // Balances
+    const entries = Object.entries(data.balances || {});
+    document.getElementById('ledgerBody').innerHTML = entries.map(([acc, bal]) =>
+      `<tr><td><b>${acc}</b></td><td>$${Number(bal).toFixed(2)}</td></tr>`
+    ).join('');
+
+    // Logs
+    const logBox = document.getElementById('logBox');
+    logBox.innerHTML = (data.logs || []).slice().reverse().map(line => {
+      const cls = line.includes('Shot up') ? 'log-scale'
+                : line.includes('LEADER') ? 'log-leader'
+                : line.includes('crashed') ? 'log-crash' : '';
+      return `<div class="log-line ${cls}">${line}</div>`;
+    }).join('');
+  } catch (e) {}
+}
+
+refresh();
+setInterval(refresh, 300);
+</script>
+</body>
+</html>
