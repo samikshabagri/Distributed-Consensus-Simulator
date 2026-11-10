@@ -29,9 +29,12 @@ int main() {
     lb.handleWrite({TxnType::DEPOSIT, "Grace",   "ACC_707", "", 900},  leaderId);
     lb.handleWrite({TxnType::DEPOSIT, "Hannah",  "ACC_808", "", 720},  leaderId);
 
+    lb.startContinuousTraffic();
+
     WebServer server(cluster, lb, 8080);
     server.start();
 
+    lb.stop();
     cluster.stop();
     return 0;
 }

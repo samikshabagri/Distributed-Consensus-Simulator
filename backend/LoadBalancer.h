@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <random>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ private:
     atomic<long long> totalReads{0};
     atomic<long long> totalWrites{0};
     atomic<int> currentLoad{0};
+    atomic<bool> running{false};
     atomic<bool> bursting{false};
     atomic<int> burstSent{0};
     atomic<int> burstTotal{0};
@@ -43,6 +45,7 @@ private:
     int lastReadNode = -1;
     double lastReadBal = 0.0;
 
+    thread trafficThread;
     thread burstThread;
 
     void pushLoadSample(int value) {
@@ -61,12 +64,70 @@ private:
         }
     }
 
+    void sendBackgroundTraffic(int count, int stepOffset) {
+        const vector<string> accounts = {
+            "ACC_101", "ACC_202", "ACC_303", "ACC_404",
+            "ACC_505", "ACC_606", "ACC_707", "ACC_808"
+        };
+        for (int i = 0; i < count; ++i) {
+            int idx = (stepOffset + i) % (int)accounts.size();
+            if (i % 25 == 0) {
+                Transaction t;
+                t.type = TxnType::TRANSFER;
+                t.user = "Traffic";
+                t.account = accounts[idx];
+                t.toAccount = accounts[(idx + 1) % (int)accounts.size()];
+                t.amount = 1.0;
+                if (cluster.submitWrite(t)) totalWrites++;
+            } else {
+                int fId = -1;
+                double bal = 0;
+                handleRead(accounts[idx], fId, bal, false);
+            }
+        }
+    }
+
 public:
     explicit LoadBalancer(Cluster& c) : cluster(c) {
         for (int i = 0; i < 24; ++i) loadHistory.push_back(0);
     }
 
     ~LoadBalancer() {
+        stop();
+    }
+
+    // Continuous background traffic (~200-300 random messages/sec)
+    void startContinuousTraffic() {
+        if (running.exchange(true)) return;
+        trafficThread = thread([this]() {
+            mt19937 rng((unsigned int)chrono::steady_clock::now().time_since_epoch().count());
+            uniform_int_distribution<int> dist(50, 75); // 4 ticks/sec -> ~200-300 msg/sec
+            deque<int> recentTicks;
+            int step = 0;
+
+            while (running.load()) {
+                this_thread::sleep_for(chrono::milliseconds(250));
+                if (!running.load()) break;
+                if (bursting.load()) continue;
+
+                int n = dist(rng);
+                sendBackgroundTraffic(n, step);
+                step += n;
+
+                recentTicks.push_back(n);
+                if (recentTicks.size() > 4) recentTicks.pop_front();
+                int load = 0;
+                for (int v : recentTicks) load += v;
+
+                currentLoad = load;
+                pushLoadSample(load);
+            }
+        });
+    }
+
+    void stop() {
+        running = false;
+        if (trafficThread.joinable()) trafficThread.join();
         if (burstThread.joinable()) burstThread.join();
     }
 
@@ -114,7 +175,7 @@ public:
         return true;
     }
 
-    // Send thousands of messages in quick waves so load rises and triggers follower auto-scaling
+    // Send a large burst of messages at once to trigger load-driven follower scaling
     void startBurst(int totalMessages = 3000) {
         if (bursting.exchange(true)) return;
         if (burstThread.joinable()) burstThread.join();
@@ -124,33 +185,14 @@ public:
         Logger::get().log("[LoadBalancer] Starting high-load burst of " + to_string(totalMessages) + " messages...");
 
         burstThread = thread([this, totalMessages]() {
-            const vector<string> accounts = {
-                "ACC_101", "ACC_202", "ACC_303", "ACC_404",
-                "ACC_505", "ACC_606", "ACC_707", "ACC_808"
-            };
             int waves = 20;
             int perWave = max(1, totalMessages / waves);
             deque<int> recentWaves;
 
-            for (int w = 0; w < waves; ++w) {
+            for (int w = 0; w < waves && running.load(); ++w) {
                 int countThisWave = (w == waves - 1) ? (totalMessages - burstSent.load()) : perWave;
-                for (int i = 0; i < countThisWave; ++i) {
-                    string acc = accounts[(w * perWave + i) % accounts.size()];
-                    if (i % 25 == 0) {
-                        Transaction t;
-                        t.type = TxnType::DEPOSIT;
-                        t.user = "LoadGen";
-                        t.account = acc;
-                        t.amount = 1.0;
-                        RaftNode* leader = cluster.findLeader();
-                        if (leader && cluster.submitWrite(t)) totalWrites++;
-                    } else {
-                        int fId = -1;
-                        double bal = 0;
-                        handleRead(acc, fId, bal, false);
-                    }
-                    burstSent++;
-                }
+                sendBackgroundTraffic(countThisWave, w * perWave);
+                burstSent += countThisWave;
 
                 recentWaves.push_back(countThisWave);
                 if (recentWaves.size() > 6) recentWaves.pop_front();
@@ -163,24 +205,16 @@ public:
                 this_thread::sleep_for(chrono::milliseconds(140));
             }
 
-            // Smoothly drain load on chart once burst completes
-            for (int i = 0; i < 4; ++i) {
-                int decayed = currentLoad.load() / 2;
+            // Smoothly step down back to continuous baseline
+            for (int i = 0; i < 3 && running.load(); ++i) {
+                int decayed = max(240, currentLoad.load() / 2);
                 currentLoad = decayed;
                 pushLoadSample(decayed);
                 this_thread::sleep_for(chrono::milliseconds(150));
             }
-            currentLoad = 0;
-            pushLoadSample(0);
             Logger::get().log("[LoadBalancer] Burst complete (" + to_string(totalMessages) + " messages processed)");
             bursting = false;
         });
-    }
-
-    void tickIdle() {
-        if (!bursting.load()) {
-            pushLoadSample(currentLoad.exchange(0));
-        }
     }
 
     LoadSnapshot getSnapshot() const {

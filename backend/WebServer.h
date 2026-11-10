@@ -42,10 +42,10 @@ private:
         return val;
     }
 
-    static string readFrontendHtml() {
-        ifstream f("frontend/index.html");
-        if (!f) f.open("../frontend/index.html");
-        if (!f) return "<h1>frontend/index.html not found</h1>";
+    static string readFrontendFile(const string& name) {
+        ifstream f("frontend/" + name);
+        if (!f) f.open("../frontend/" + name);
+        if (!f) return "";
         ostringstream ss;
         ss << f.rdbuf();
         return ss.str();
@@ -64,7 +64,6 @@ private:
     }
 
     string buildStatusJson() {
-        lb.tickIdle();
         RaftNode* leader = cluster.findLeader();
         int leaderId = leader ? leader->getId() : -1;
         int leaderTerm = leader ? leader->getTerm() : 0;
@@ -163,7 +162,10 @@ private:
         }
 
         if (path == "/" || path == "/index.html") {
-            sendHttp(client, "text/html; charset=utf-8", readFrontendHtml());
+            string html = readFrontendFile("index.html");
+            sendHttp(client, "text/html; charset=utf-8", html.empty() ? "<h1>frontend/index.html not found</h1>" : html);
+        } else if (path == "/styles.css" || path == "/tokens.css" || path == "/base.css") {
+            sendHttp(client, "text/css; charset=utf-8", readFrontendFile(path.substr(1)));
         } else if (path == "/status") {
             sendHttp(client, "application/json", buildStatusJson());
         } else if (path == "/write") {
