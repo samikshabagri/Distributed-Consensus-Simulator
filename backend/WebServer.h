@@ -42,13 +42,31 @@ private:
         return val;
     }
 
+    static string exeDir() {
+        char buf[MAX_PATH];
+        DWORD len = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+        string p(buf, len);
+        size_t pos = p.find_last_of("\\/");
+        return (pos == string::npos) ? "" : p.substr(0, pos + 1);
+    }
+
     static string readFrontendFile(const string& name) {
-        ifstream f("frontend/" + name);
-        if (!f) f.open("../frontend/" + name);
-        if (!f) return "";
-        ostringstream ss;
-        ss << f.rdbuf();
-        return ss.str();
+        string dir = exeDir();
+        const string paths[] = {
+            "frontend/" + name,
+            "../frontend/" + name,
+            dir + "frontend/" + name,
+            dir + "../frontend/" + name
+        };
+        for (const string& p : paths) {
+            ifstream f(p);
+            if (f) {
+                ostringstream ss;
+                ss << f.rdbuf();
+                return ss.str();
+            }
+        }
+        return "";
     }
 
     static void sendHttp(SOCKET client, const string& contentType, const string& body) {
