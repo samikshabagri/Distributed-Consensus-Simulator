@@ -16,6 +16,8 @@ A simple C++ simulation of a distributed banking system using **Raft consensus**
 
 ## Build & Run
 
+Run the prebuilt `backend/raft_sim.exe` directly on Windows, or build and run from source:
+
 ```bash
 g++ -std=c++17 -O2 -pthread -static backend/main.cpp backend/RaftNode.cpp -lws2_32 -o backend/raft_sim.exe
 ./backend/raft_sim.exe
