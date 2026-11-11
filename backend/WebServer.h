@@ -11,6 +11,7 @@
 #include <iomanip>
 #include "Cluster.h"
 #include "LoadBalancer.h"
+#include "EmbeddedFrontend.h"
 
 using namespace std;
 
@@ -66,7 +67,7 @@ private:
                 return ss.str();
             }
         }
-        return "";
+        return getEmbeddedFrontend(name);
     }
 
     static void sendHttp(SOCKET client, const string& contentType, const string& body) {
